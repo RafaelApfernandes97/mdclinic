@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<title>Dashboard — Confirmação de Agendamento</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  body{font-family:system-ui,Arial,sans-serif;background:#0f172a;color:#e2e8f0;margin:0;padding:1.5rem}
+  header{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap}
+  h1{font-size:1.2rem;margin:0}
+  a.logout{color:#94a3b8;font-size:.85rem}
+  .cards{display:flex;gap:1rem;flex-wrap:wrap;margin:1rem 0}
+  .card{background:#1e293b;border-radius:12px;padding:1rem 1.3rem;min-width:120px}
+  .card .n{font-size:1.6rem;font-weight:700} .card .l{font-size:.8rem;color:#94a3b8}
+  .grid{display:grid;grid-template-columns:1fr 2fr;gap:1rem}
+  .box{background:#1e293b;border-radius:12px;padding:1rem}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{text-align:left;padding:.4rem .5rem;border-bottom:1px solid #334155}
+  input[type=date]{padding:.4rem;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#e2e8f0}
+  @media(max-width:800px){.grid{grid-template-columns:1fr}}
+</style></head><body>
+<header>
+  <h1>Confirmação de Agendamento</h1>
+  <div><input type="date" id="data"> <a class="logout" href="/logout">sair</a></div>
+</header>
+<div class="cards" id="cards"></div>
+<div class="grid">
+  <div class="box"><canvas id="grafico"></canvas></div>
+  <div class="box"><table id="tabela"><thead><tr>
+    <th>Paciente</th><th>Telefone</th><th>Médico</th><th>Consulta</th><th>ACK</th><th>Enviado</th>
+  </tr></thead><tbody></tbody></table></div>
+</div>
+<script>
+let chart;
+const fmt = (iso)=> iso? new Date(iso).toLocaleString('pt-BR'):'';
+async function carregar(){
+  const data=document.getElementById('data').value;
+  const r=await fetch('/api/dados?data='+data); const d=await r.json();
+  const c=d.resumo;
+  document.getElementById('cards').innerHTML=[
+    ['Total',c.total],['Enviado',c.enviado],['Entregue',c.entregue],['Lido',c.lido],['Falha',c.falha]
+  ].map(([l,n])=>`<div class="card"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
+  const tb=document.querySelector('#tabela tbody');
+  tb.innerHTML=d.detalhado.map(e=>`<tr><td>${e.nome_paciente}</td><td>${e.telefone}</td>
+    <td>${e.nome_medico}</td><td>${fmt(e.inicio)}</td><td>${e.ack}</td><td>${fmt(e.data_envio)}</td></tr>`).join('');
+  const labels=d.porMedico.map(m=>m.nome_medico), valores=d.porMedico.map(m=>m.total);
+  if(chart)chart.destroy();
+  chart=new Chart(document.getElementById('grafico'),{type:'bar',
+    data:{labels,datasets:[{label:'Envios por médico',data:valores,backgroundColor:'#2563eb'}]},
+    options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#94a3b8'}},y:{ticks:{color:'#94a3b8'}}}}});
+}
+const hoje=new Date().toISOString().slice(0,10);
+document.getElementById('data').value=hoje;
+document.getElementById('data').addEventListener('change',carregar);
+carregar();
+</script>
+</body></html>
