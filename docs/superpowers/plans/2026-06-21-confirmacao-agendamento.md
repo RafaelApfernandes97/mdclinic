@@ -6,11 +6,13 @@
 
 **Architecture:** Processo Node persistente em container Docker no EasyPanel. Um scheduler interno (`node-cron`) dispara o job de envio; passes de ACK são persistidos e reagendados; um servidor Express serve dashboard + `/health` + `/run-now`. Persistência em SQLite num volume.
 
-**Tech Stack:** Node.js (>=20, ESM), `better-sqlite3`, `node-cron`, `express`, `cookie-session`, `node:test` + `node --test` para testes, `dotenv`. Frontend: HTML servido pelo Node + Chart.js via CDN. Docker.
+**Tech Stack:** Node.js (>=24, ESM), **`node:sqlite` nativo** (sem dependência nativa a compilar), `node-cron`, `express`, `cookie-session`, `node:test` + `node --test` para testes, `dotenv`. Frontend: HTML servido pelo Node + Chart.js via CDN. Docker.
+
+> **NOTA (decisão de execução, 2026-06-21):** o plano original usava `better-sqlite3`, mas ele exige toolchain C++ (Visual Studio) ausente na máquina de dev Windows. Trocado pelo módulo embutido **`node:sqlite`** (Node 24), que tem API compatível e zero compilação nativa. Isso muda: `package.json` (sem `better-sqlite3`, `engines` >=24), `src/store.js` (`import { DatabaseSync } from 'node:sqlite'` e `PRAGMA` via `exec`) e `Dockerfile` (base `node:24-slim`, sem build tools).
 
 ## Global Constraints
 
-- Runtime: Node.js >= 20, módulos **ESM** (`"type": "module"` no `package.json`).
+- Runtime: Node.js >= 24, módulos **ESM** (`"type": "module"` no `package.json`).
 - Fuso: todo cálculo de data/"amanhã"/formatação usa **America/Sao_Paulo**.
 - Toda credencial/URL vem do `.env` — **nunca** hardcode token/URL.
 - Idempotência: nunca reenviar para um `id_agendamento` já com `status_envio = 'enviado'`.
@@ -59,13 +61,12 @@
   "name": "mdclinic-confirmacao",
   "version": "1.0.0",
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": { "node": ">=24" },
   "scripts": {
     "start": "node src/index.js",
     "test": "node --test"
   },
   "dependencies": {
-    "better-sqlite3": "^11.0.0",
     "cookie-session": "^2.1.0",
     "dotenv": "^16.4.0",
     "express": "^4.19.0",
@@ -446,7 +447,7 @@ Expected: FAIL.
 - [ ] **Step 3: Implementar `src/store.js`**
 
 ```js
-import Database from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
@@ -480,8 +481,8 @@ CREATE TABLE IF NOT EXISTS lotes (
 
 export function criarStore(caminho) {
   if (caminho !== ':memory:') mkdirSync(dirname(caminho), { recursive: true });
-  const db = new Database(caminho);
-  db.pragma('journal_mode = WAL');
+  const db = new DatabaseSync(caminho);
+  db.exec('PRAGMA journal_mode = WAL');
   db.exec(SCHEMA);
 
   const upsertEnvio = db.prepare(`
@@ -1541,10 +1542,8 @@ app.listen(config.port, () => {
 - [ ] **Step 2: Implementar `Dockerfile`**
 
 ```dockerfile
-FROM node:20-slim
+FROM node:24-slim
 WORKDIR /app
-# better-sqlite3 precisa de toolchain para compilar
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
 COPY package*.json ./
 RUN npm install --omit=dev
 COPY . .

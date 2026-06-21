@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<title>Login — Confirmação de Agendamento</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body{font-family:system-ui,Arial,sans-serif;background:#0f172a;color:#e2e8f0;display:grid;place-items:center;height:100vh;margin:0}
+  form{background:#1e293b;padding:2rem;border-radius:12px;width:300px;box-shadow:0 10px 30px #0006}
+  h1{font-size:1.1rem;margin:0 0 1rem} label{display:block;margin:.6rem 0 .2rem;font-size:.85rem}
+  input{width:100%;padding:.55rem;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;box-sizing:border-box}
+  button{margin-top:1rem;width:100%;padding:.6rem;border:0;border-radius:8px;background:#2563eb;color:#fff;font-weight:600;cursor:pointer}
+  .erro{color:#f87171;font-size:.8rem;margin-top:.5rem}
+</style></head><body>
+<form method="POST" action="/login">
+  <h1>Confirmação de Agendamento</h1>
+  <label>Usuário</label><input name="usuario" autofocus>
+  <label>Senha</label><input name="senha" type="password">
+  <button type="submit">Entrar</button>
+  <div class="erro" id="erro"></div>
+</form>
+<script>if(location.search.includes('erro'))document.getElementById('erro').textContent='Usuário ou senha inválidos';</script>
+</body></html>
