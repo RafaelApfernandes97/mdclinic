@@ -22,7 +22,14 @@ const verificarPasses = () => verificarPassesPendentes({ store, maischat });
 iniciarScheduler({ cron, config, executarEnvio, verificarPasses });
 
 const app = criarServidor({ store, config, executarEnvio });
-app.listen(config.port, () => {
+const server = app.listen(config.port, () => {
   console.log(`[server] ouvindo na porta ${config.port}`);
   verificarPasses().catch((e) => console.error('[init] erro ao verificar passes pendentes:', e));
 });
+
+for (const sinal of ['SIGTERM', 'SIGINT']) {
+  process.on(sinal, () => {
+    console.log(`[server] recebido ${sinal}, encerrando...`);
+    server.close(() => { store.fechar(); process.exit(0); });
+  });
+}

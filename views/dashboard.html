@@ -31,6 +31,7 @@
 </div>
 <script>
 let chart;
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt = (iso)=> iso? new Date(iso).toLocaleString('pt-BR'):'';
 async function carregar(){
   const data=document.getElementById('data').value;
@@ -40,8 +41,8 @@ async function carregar(){
     ['Total',c.total],['Enviado',c.enviado],['Entregue',c.entregue],['Lido',c.lido],['Falha',c.falha]
   ].map(([l,n])=>`<div class="card"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
   const tb=document.querySelector('#tabela tbody');
-  tb.innerHTML=d.detalhado.map(e=>`<tr><td>${e.nome_paciente}</td><td>${e.telefone}</td>
-    <td>${e.nome_medico}</td><td>${fmt(e.inicio)}</td><td>${e.ack}</td><td>${fmt(e.data_envio)}</td></tr>`).join('');
+  tb.innerHTML=d.detalhado.map(e=>`<tr><td>${esc(e.nome_paciente)}</td><td>${esc(e.telefone)}</td>
+    <td>${esc(e.nome_medico)}</td><td>${fmt(e.inicio)}</td><td>${esc(e.ack)}</td><td>${fmt(e.data_envio)}</td></tr>`).join('');
   const labels=d.porMedico.map(m=>m.nome_medico), valores=d.porMedico.map(m=>m.total);
   if(chart)chart.destroy();
   chart=new Chart(document.getElementById('grafico'),{type:'bar',

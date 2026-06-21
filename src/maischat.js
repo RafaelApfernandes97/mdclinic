@@ -17,7 +17,9 @@ export function criarMaisChat({ baseUrl, token, templateNome, templateIdioma, fe
     const r = await fetch(url, { method: 'POST', headers, body });
     if (!r.ok) throw new Error(`Falha sendTemplate: ${r.status} ${await r.text()}`);
     const data = await r.json();
-    return { idMensagem: data.messageId ?? data.id ?? null };
+    const idMensagem = data.messageId ?? data.id ?? null;
+    if (!idMensagem) console.warn('[maischat] envio sem idMensagem retornado — ACK não poderá ser consultado para', telefone);
+    return { idMensagem };
   }
 
   async function getStatusMensagem(idMensagem) {

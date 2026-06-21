@@ -3,6 +3,7 @@ import { montarDashboard } from './dashboard.js';
 
 export function criarServidor({ store, config, executarEnvio }) {
   const app = express();
+  app.set('trust proxy', 1); // EasyPanel termina TLS num proxy reverso
 
   app.get('/health', (req, res) => res.json({ ok: true }));
 
