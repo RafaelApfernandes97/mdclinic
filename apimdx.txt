@@ -1,0 +1,686 @@
+DOCUMENTAÇÃO BASE - INTEGRAÇÃO API MEDX / AUTOMAÇÃO DE AVISO DE AGENDAMENTO
+
+Objetivo:
+Construir uma automação para consultar agendas médicas via API, identificar agendamentos futuros e enviar avisos/lembretes aos pacientes.
+
+Base URL Produção:
+https://medx65-v65teste.azurewebsites.net
+
+Padrão da requisição:
+JSON
+
+IMPORTANTE:
+Nunca expor o token de integração no lado cliente/frontend.
+O token de autenticação deve ser usado apenas no backend/servidor.
+
+============================================================
+1. AUTENTICAÇÃO
+============================================================
+
+Antes de consultar qualquer endpoint, é necessário gerar um token de autenticação.
+
+Método:
+GET
+
+Endpoint:
+/api/integration/GetAuthorizedToken?token=SEU_TOKEN_INTEGRACAO
+
+URL completa:
+https://medx65-v65teste.azurewebsites.net/api/integration/GetAuthorizedToken?token=SEU_TOKEN_INTEGRACAO
+
+Descrição:
+SEU_TOKEN_INTEGRACAO é o token obtido no sistema em:
+Ajustes > Integração para websites e links
+
+Retorno esperado:
+HTTP 200 com uma string contendo o token de autenticação.
+
+Validade do token:
+180 minutos.
+
+Exemplo cURL:
+curl --location 'https://medx65-v65teste.azurewebsites.net/api/integration/GetAuthorizedToken?token=SEU_TOKEN_INTEGRACAO'
+
+Uso nas próximas chamadas:
+Todas as chamadas subsequentes devem enviar o token no header Authorization:
+
+Authorization: Bearer TOKEN_DE_AUTENTICACAO
+
+============================================================
+2. CONSULTAR USUÁRIOS DA AGENDA / MÉDICOS
+============================================================
+
+Use este endpoint para listar os profissionais/médicos disponíveis na agenda e obter o ID do usuário.
+
+Método:
+GET
+
+Endpoint:
+/api/integration/GetUsuariosAgenda
+
+URL completa:
+https://medx65-v65teste.azurewebsites.net/api/integration/GetUsuariosAgenda
+
+Parâmetros:
+Sem parâmetros.
+
+Header obrigatório:
+Authorization: Bearer TOKEN_DE_AUTENTICACAO
+
+Exemplo cURL:
+curl --location 'https://medx65-v65teste.azurewebsites.net/api/integration/GetUsuariosAgenda' \
+--header 'Authorization: Bearer TOKEN_DE_AUTENTICACAO'
+
+Objetivo no sistema:
+- Buscar a lista de usuários/médicos.
+- Localizar o médico pelo nome.
+- Guardar o ID do médico para consultar a agenda específica.
+
+Exemplo de lógica:
+1. Consultar GetUsuariosAgenda.
+2. Procurar pelo nome do médico desejado, por exemplo: Dra. Marina.
+3. Obter o campo de ID do usuário.
+4. Usar esse ID no endpoint GetAgendabyUsuario ou GetDisponibilidade.
+
+Observação:
+No retorno de GetAgenda foi identificado o campo Id_Usuario em cada agendamento.
+Exemplo de IDs encontrados:
+- Id_Usuario: -1212054111
+- Id_Usuario: 514732650
+- Id_Usuario: 578834368
+
+Também foi identificado um registro com:
+Quemcriounome: dramarinadedeus
+Id_Usuario: -1212054111
+Descricao: FECHADA (SEQUENCIAL)
+
+Isso indica que o Id_Usuario -1212054111 provavelmente pertence à Dra. Marina de Deus, mas a confirmação correta deve ser feita via GetUsuariosAgenda.
+
+============================================================
+3. CONSULTAR AGENDA GERAL
+============================================================
+
+Consulta todos os agendamentos dentro de um período, sem filtrar por médico.
+
+Método:
+GET
+
+Endpoint:
+/api/integration/GetAgenda?inicio=YYYY-MM-DD&fim=YYYY-MM-DD
+
+URL exemplo:
+https://medx65-v65teste.azurewebsites.net/api/integration/GetAgenda?inicio=2026-06-18&fim=2026-06-30
+
+Parâmetros:
+inicio: data inicial
+fim: data final
+
+Header obrigatório:
+Authorization: Bearer TOKEN_DE_AUTENTICACAO
+
+Exemplo cURL:
+curl --location 'https://medx65-v65teste.azurewebsites.net/api/integration/GetAgenda?inicio=2026-06-18&fim=2026-06-30' \
+--header 'Authorization: Bearer TOKEN_DE_AUTENTICACAO'
+
+Campos importantes no retorno:
+- Id_Usuario: ID do médico/profissional responsável pelo agendamento.
+- Inicio: data e horário inicial do agendamento.
+- Fim: data e horário final do agendamento.
+- Descricao: informações do paciente e observações do agendamento.
+- TipoAgendamento: tipo do agendamento, quando disponível.
+- Status: status numérico do agendamento.
+- Id_Paciente: ID do paciente vinculado.
+- Id_Agendamento: ID único do agendamento.
+- Confirmacao: informação de confirmação, quando houver.
+- SMS: telefone/celular do paciente, quando preenchido.
+- Setor: setor do agendamento.
+- CreationDate: data de criação do agendamento.
+- LastEditDate: data da última alteração.
+- Quemcriounome: usuário que criou o agendamento.
+- Quemeditounome: usuário que editou o agendamento.
+
+Exemplo de item retornado:
+{
+  "Id_Usuario": -1212054111,
+  "Inicio": "2026-06-30T18:20:00",
+  "Fim": "2026-06-30T18:40:00",
+  "Descricao": "NOME DO PACIENTE, observações, telefone",
+  "TipoAgendamento": null,
+  "Status": 0,
+  "Id_Paciente": 1211488404,
+  "Id_Agendamento": 1890563241,
+  "Confirmacao": null,
+  "SMS": "34999999999",
+  "Setor": "Clínica"
+}
+
+============================================================
+4. CONSULTAR AGENDA DE UM MÉDICO ESPECÍFICO
+============================================================
+
+Use este endpoint quando já tiver o ID do médico/profissional.
+
+Método:
+GET
+
+Endpoint:
+/api/integration/GetAgendabyUsuario?inicio=YYYY-MM-DD&fim=YYYY-MM-DD&idUsuario=ID_DO_MEDICO
+
+URL exemplo:
+https://medx65-v65teste.azurewebsites.net/api/integration/GetAgendabyUsuario?inicio=2026-06-18&fim=2026-06-30&idUsuario=-1212054111
+
+Parâmetros:
+inicio: data inicial
+fim: data final
+idUsuario: ID do médico/profissional
+
+Header obrigatório:
+Authorization: Bearer TOKEN_DE_AUTENTICACAO
+
+Exemplo cURL:
+curl --location 'https://medx65-v65teste.azurewebsites.net/api/integration/GetAgendabyUsuario?inicio=2026-06-18&fim=2026-06-30&idUsuario=-1212054111' \
+--header 'Authorization: Bearer TOKEN_DE_AUTENTICACAO'
+
+Objetivo no sistema:
+- Consultar somente os agendamentos de um médico.
+- Usar para verificar agenda diária ou semanal.
+- Usar para disparar lembretes de consultas daquele médico.
+
+============================================================
+5. CONSULTAR AGENDA POR SETOR
+============================================================
+
+Método:
+GET
+
+Endpoint:
+/api/integration/GetAgendabySetor?inicio=YYYY-MM-DD&fim=YYYY-MM-DD&setor=NOME_SETOR
+
+URL exemplo:
+https://medx65-v65teste.azurewebsites.net/api/integration/GetAgendabySetor?inicio=2026-06-18&fim=2026-06-30&setor=clinica
+
+Parâmetros:
+inicio: data inicial
+fim: data final
+setor: nome do setor
+
+Header obrigatório:
+Authorization: Bearer TOKEN_DE_AUTENTICACAO
+
+============================================================
+6. CONSULTAR SETORES
+============================================================
+
+Método:
+GET
+
+Endpoint:
+/api/integration/GetSetor
+
+URL completa:
+https://medx65-v65teste.azurewebsites.net/api/integration/GetSetor
+
+Parâmetros:
+Sem parâmetros.
+
+Header obrigatório:
+Authorization: Bearer TOKEN_DE_AUTENTICACAO
+
+============================================================
+7. CONSULTAR DISPONIBILIDADE DE HORÁRIOS LIVRES
+============================================================
+
+Use este endpoint para verificar horários disponíveis de um médico antes de criar agendamento.
+
+Método:
+GET
+
+Endpoint:
+/api/integration/GetDisponibilidade?dti=YYYY-MM-DD&dtf=YYYY-MM-DD&proid=ID_DO_MEDICO&intervalo=30
+
+URL exemplo:
+https://medx65-v65teste.azurewebsites.net/api/integration/GetDisponibilidade?dti=2026-06-18&dtf=2026-06-30&proid=-1212054111&intervalo=30
+
+Parâmetros:
+dti: data inicial
+dtf: data final
+proid: ID do usuário do médico
+intervalo: tempo em minutos para retornar horários livres
+
+Header obrigatório:
+Authorization: Bearer TOKEN_DE_AUTENTICACAO
+
+Exemplo cURL:
+curl --location 'https://medx65-v65teste.azurewebsites.net/api/integration/GetDisponibilidade?dti=2026-06-18&dtf=2026-06-30&proid=-1212054111&intervalo=30' \
+--header 'Authorization: Bearer TOKEN_DE_AUTENTICACAO'
+
+Objetivo no sistema:
+- Verificar horários livres antes de agendar.
+- Mostrar opções de horários ao paciente.
+- Evitar conflito com horários já ocupados.
+
+============================================================
+8. CONSULTAR PACIENTES
+============================================================
+
+Método:
+GET
+
+Endpoint:
+/api/integration/GetPacientes
+
+URL completa:
+https://medx65-v65teste.azurewebsites.net/api/integration/GetPacientes
+
+Parâmetros:
+Sem parâmetros.
+
+Header obrigatório:
+Authorization: Bearer TOKEN_DE_AUTENTICACAO
+
+============================================================
+9. CONSULTAR CONTATO/PACIENTE POR ID
+============================================================
+
+Método:
+GET
+
+Endpoint:
+/api/integration/GetContatosById?idcontato=ID_CONTATO
+
+URL exemplo:
+https://medx65-v65teste.azurewebsites.net/api/integration/GetContatosById?idcontato=123456789
+
+Parâmetros:
+idcontato: ID do contato/paciente
+
+Header obrigatório:
+Authorization: Bearer TOKEN_DE_AUTENTICACAO
+
+Objetivo no sistema:
+- Buscar informações completas do paciente.
+- Confirmar telefone, CPF, e-mail e demais dados antes do envio do aviso.
+
+============================================================
+10. BUSCAR CONTATO/PACIENTE POR NOME, CPF OU TELEFONE
+============================================================
+
+Método:
+GET
+
+Endpoint:
+/api/integration/GetContatosGridBySearch?Name=NOME
+
+URL exemplo por nome:
+https://medx65-v65teste.azurewebsites.net/api/integration/GetContatosGridBySearch?Name=Matheus
+
+Também é possível buscar por CPF e telefone enviando os parâmetros correspondentes.
+
+Header obrigatório:
+Authorization: Bearer TOKEN_DE_AUTENTICACAO
+
+Objetivo no sistema:
+- Encontrar paciente antes de criar ou confirmar agendamento.
+- Validar se o paciente já existe na base.
+
+============================================================
+11. CONSULTAR TIPOS DE AGENDAMENTO
+============================================================
+
+Método:
+GET
+
+Endpoint:
+/api/integration/gettiposagendamento
+
+URL completa:
+https://medx65-v65teste.azurewebsites.net/api/integration/gettiposagendamento
+
+Parâmetros:
+Sem parâmetros.
+
+Header obrigatório:
+Authorization: Bearer TOKEN_DE_AUTENTICACAO
+
+Objetivo:
+Obter os tipos de consulta/agendamento para usar no campo Id_do_TipoConsulta.
+
+============================================================
+12. CONSULTAR STATUS DA AGENDA
+============================================================
+
+Método:
+GET
+
+Endpoint:
+/api/integration/GetStatusNomeAgenda
+
+URL completa:
+https://medx65-v65teste.azurewebsites.net/api/integration/GetStatusNomeAgenda
+
+Parâmetros:
+Sem parâmetros.
+
+Retorno:
+Lista/array de status cadastrados na conta.
+
+Observação:
+Para saber o nome do status e retornar no agendamento, utilizar a posição correspondente ao índice do array.
+
+============================================================
+13. CRIAR AGENDAMENTO
+============================================================
+
+Método:
+POST
+
+Endpoint:
+/api/integration/insertagenda
+
+URL completa:
+https://medx65-v65teste.azurewebsites.net/api/integration/insertagenda
+
+Header obrigatório:
+Authorization: Bearer TOKEN_DE_AUTENTICACAO
+Content-Type: application/json
+
+Objeto:
+{
+  "Id_do_Usuario": 12345,
+  "Inicio": "YYYY-MM-DDTHH:mm:ss",
+  "Final": "YYYY-MM-DDTHH:mm:ss",
+  "Descricao": "Descrição do agendamento",
+  "Status": 1,
+  "Vinculado_a": 67890,
+  "Id_do_TipoConsulta": 111
+}
+
+Campos:
+Id_do_Usuario: ID do médico obtido em GetUsuariosAgenda.
+Inicio: data e hora inicial do agendamento.
+Final: data e hora final do agendamento.
+Descricao: descrição/observações do agendamento.
+Status: status do agendamento. Geralmente 1, salvo personalização no sistema.
+Vinculado_a: ID do paciente.
+Id_do_TipoConsulta: ID do tipo de consulta.
+
+Exemplo cURL:
+curl --location 'https://medx65-v65teste.azurewebsites.net/api/integration/insertagenda' \
+--header 'Authorization: Bearer TOKEN_DE_AUTENTICACAO' \
+--header 'Content-Type: application/json' \
+--data '{
+  "Id_do_Usuario": -1212054111,
+  "Inicio": "2026-06-30T10:00:00",
+  "Final": "2026-06-30T10:30:00",
+  "Descricao": "Paciente Teste, Consulta médica",
+  "Status": 1,
+  "Vinculado_a": 123456789,
+  "Id_do_TipoConsulta": 111
+}'
+
+============================================================
+14. ATUALIZAR AGENDAMENTO
+============================================================
+
+Método:
+PUT
+
+Endpoint:
+/api/integration/UpdateAgendamento
+
+URL completa:
+https://medx65-v65teste.azurewebsites.net/api/integration/UpdateAgendamento
+
+Header obrigatório:
+Authorization: Bearer TOKEN_DE_AUTENTICACAO
+Content-Type: application/json
+
+Objeto:
+{
+  "Id_do_Agendamento": 1275002478,
+  "Id_do_Usuario": 43013640,
+  "Inicio": "2023-11-15T10:00:00",
+  "Final": "2023-11-15T13:30:00",
+  "Descricao": "Rodrigo Souto, Convênio: Saúde",
+  "Status": 3,
+  "Vinculado_a": -30094605,
+  "Confirmacao": "Mensagem Salva com Sucesso",
+  "Id_do_TipoConsulta": 111
+}
+
+Observação importante sobre confirmação:
+Para deixar o agendamento confirmado, o campo Confirmacao precisa receber exatamente:
+Mensagem Salva com Sucesso
+
+Se for enviada outra mensagem, poderá ficar com ícone de não confirmado.
+
+============================================================
+15. INSERIR CONTATO/PACIENTE
+============================================================
+
+Método:
+POST
+
+Endpoint:
+/api/integration/InsertContato
+
+URL completa:
+https://medx65-v65teste.azurewebsites.net/api/integration/InsertContato
+
+Header obrigatório:
+Authorization: Bearer TOKEN_DE_AUTENTICACAO
+Content-Type: application/json
+
+Objeto:
+{
+  "Nome": "Teste",
+  "Endereco_Residencial": "RuaTeste,450",
+  "Cidade_Residencial": "",
+  "Estado_Residencial": "",
+  "Cep_Residencial": "2222222",
+  "Pais_Residencial": "",
+  "Telefone_Residencial": "2123213123",
+  "Celular": "2199999999",
+  "Observacoes": "",
+  "Sexo": "M",
+  "Bairro_Residencial": "teste",
+  "Email": "teste@teste.com",
+  "Nascimento": "1999-02-12T02:00:00.000Z",
+  "CPF_CGC": "12345678910",
+  "RG": "123456789"
+}
+
+Observação:
+Sexo: usar M para masculino e F para feminino.
+
+============================================================
+16. INSERIR PRONTUÁRIO
+============================================================
+
+Método:
+POST
+
+Endpoint:
+/api/integration/InsertProntuario
+
+URL completa:
+https://medx65-v65teste.azurewebsites.net/api/integration/InsertProntuario
+
+Header obrigatório:
+Authorization: Bearer TOKEN_DE_AUTENTICACAO
+Content-Type: application/json
+
+Objeto:
+{
+  "Historico": "teste",
+  "Id_do_Cliente": 52071745,
+  "Data": "2025-12-19T14:18:55"
+}
+
+============================================================
+17. FLUXO RECOMENDADO PARA AUTOMAÇÃO DE AVISO DE AGENDAMENTO
+============================================================
+
+Objetivo:
+Enviar aviso automático para pacientes com agendamento futuro.
+
+Fluxo recomendado:
+
+1. Gerar token de autenticação:
+   GET /api/integration/GetAuthorizedToken?token=SEU_TOKEN_INTEGRACAO
+
+2. Consultar médicos/usuários da agenda:
+   GET /api/integration/GetUsuariosAgenda
+
+3. Definir qual médico será monitorado:
+   - Buscar pelo nome do médico.
+   - Obter o ID do médico.
+
+4. Consultar agenda do médico:
+   GET /api/integration/GetAgendabyUsuario?inicio=DATA_INICIO&fim=DATA_FIM&idUsuario=ID_DO_MEDICO
+
+5. Filtrar agendamentos que devem receber aviso:
+   Sugestões de filtro:
+   - Agendamentos de amanhã.
+   - Agendamentos das próximas 24 horas.
+   - Agendamentos ainda não confirmados.
+   - Agendamentos com telefone preenchido no campo SMS.
+   - Ignorar bloqueios como "FECHADA", "BLOQUEADO" ou agendamentos sem paciente.
+
+6. Extrair dados necessários:
+   - Nome do paciente: pode vir no início do campo Descricao.
+   - Telefone: preferencialmente campo SMS.
+   - Data e hora: campo Inicio.
+   - Médico: pelo Id_Usuario cruzado com GetUsuariosAgenda.
+   - ID do agendamento: Id_Agendamento.
+   - Status: campo Status.
+   - Confirmação: campo Confirmacao.
+
+7. Enviar mensagem de aviso:
+   Exemplo de mensagem:
+   Olá, {nome_paciente}. Passando para lembrar do seu agendamento com {nome_medico} no dia {data} às {hora}. Caso precise remarcar, responda esta mensagem.
+
+8. Registrar que o aviso foi enviado:
+   Criar controle interno para evitar envio duplicado.
+   Sugestão: salvar em banco de dados ou arquivo local:
+   - Id_Agendamento
+   - Data/hora do envio
+   - Telefone
+   - Status do envio
+
+9. Opcional: confirmar agendamento via UpdateAgendamento:
+   Se o paciente responder confirmando, atualizar o agendamento usando:
+   PUT /api/integration/UpdateAgendamento
+   Campo Confirmacao deve ser exatamente:
+   Mensagem Salva com Sucesso
+
+============================================================
+18. REGRAS IMPORTANTES PARA A AUTOMAÇÃO
+============================================================
+
+- Não enviar aviso para agendamentos sem telefone.
+- Não enviar aviso duplicado para o mesmo Id_Agendamento.
+- Tratar token expirado: se receber erro de autenticação, gerar novo token.
+- Considerar timezone local do Brasil ao comparar datas e horários.
+- Validar se o campo SMS está preenchido e normalizar telefone para envio no WhatsApp.
+- Ignorar agendamentos de bloqueio, por exemplo:
+  Descricao contendo "FECHADA", "BLOQUEADO", "SEQUENCIAL" ou sem paciente vinculado.
+- Conferir se Id_Paciente é diferente de 0 quando for obrigatório enviar apenas para pacientes vinculados.
+- Tratar Status conforme regra da clínica.
+
+============================================================
+19. EXEMPLO DE PROMPT PARA CLAUDE CODE
+============================================================
+
+Crie uma automação em Node.js para consultar a API MedX e enviar lembretes de agendamento.
+
+Requisitos:
+1. Usar variáveis de ambiente para BASE_URL, TOKEN_INTEGRACAO e dados do provedor de envio WhatsApp.
+2. Criar função getAuthToken() chamando /api/integration/GetAuthorizedToken.
+3. Criar função getUsuariosAgenda() para buscar os médicos.
+4. Criar função findMedicoByName(nome) para localizar o médico pelo nome e retornar o ID.
+5. Criar função getAgendaByUsuario(idUsuario, inicio, fim) para consultar os agendamentos do médico.
+6. Filtrar agendamentos das próximas 24 horas ou do dia seguinte.
+7. Ignorar registros sem SMS, sem Id_Paciente ou com descrição contendo FECHADA/BLOQUEADO/SEQUENCIAL.
+8. Extrair nome do paciente a partir do campo Descricao.
+9. Formatar data e hora em padrão brasileiro.
+10. Enviar uma mensagem de lembrete para o telefone do campo SMS.
+11. Criar controle de envios para não repetir o mesmo Id_Agendamento.
+12. Tratar erros de token expirado, falha de API e falha de envio.
+13. Gerar logs simples no console.
+14. Deixar o código organizado em funções.
+
+Mensagem padrão:
+Olá, {nome_paciente}. Passando para lembrar do seu agendamento com {nome_medico} no dia {data} às {hora}. Caso precise remarcar, responda esta mensagem.
+
+============================================================
+20. EXEMPLO DE ESTRUTURA DE DADOS PARA CONTROLE DE ENVIO
+============================================================
+
+{
+  "id_agendamento": 1890563241,
+  "id_usuario": -1212054111,
+  "id_paciente": 1211488404,
+  "nome_paciente": "Nome do Paciente",
+  "telefone": "34999999999",
+  "inicio": "2026-06-30T18:20:00",
+  "fim": "2026-06-30T18:40:00",
+  "status_envio": "enviado",
+  "data_envio": "2026-06-29T09:00:00"
+}
+
+============================================================
+21. ENDPOINTS RESUMIDOS
+============================================================
+
+Gerar token:
+GET /api/integration/GetAuthorizedToken?token=SEU_TOKEN_INTEGRACAO
+
+Usuários/médicos da agenda:
+GET /api/integration/GetUsuariosAgenda
+
+Agenda geral:
+GET /api/integration/GetAgenda?inicio=YYYY-MM-DD&fim=YYYY-MM-DD
+
+Agenda por médico:
+GET /api/integration/GetAgendabyUsuario?inicio=YYYY-MM-DD&fim=YYYY-MM-DD&idUsuario=ID_DO_MEDICO
+
+Agenda por setor:
+GET /api/integration/GetAgendabySetor?inicio=YYYY-MM-DD&fim=YYYY-MM-DD&setor=NOME_SETOR
+
+Setores:
+GET /api/integration/GetSetor
+
+Disponibilidade:
+GET /api/integration/GetDisponibilidade?dti=YYYY-MM-DD&dtf=YYYY-MM-DD&proid=ID_DO_MEDICO&intervalo=30
+
+Pacientes:
+GET /api/integration/GetPacientes
+
+Contato por ID:
+GET /api/integration/GetContatosById?idcontato=ID_CONTATO
+
+Buscar contato:
+GET /api/integration/GetContatosGridBySearch?Name=NOME
+
+Tipos de agendamento:
+GET /api/integration/gettiposagendamento
+
+Status da agenda:
+GET /api/integration/GetStatusNomeAgenda
+
+Criar agendamento:
+POST /api/integration/insertagenda
+
+Atualizar agendamento:
+PUT /api/integration/UpdateAgendamento
+
+Inserir contato:
+POST /api/integration/InsertContato
+
+Inserir prontuário:
+POST /api/integration/InsertProntuario
+
+============================================================
+FIM DO DOCUMENTO
+============================================================
