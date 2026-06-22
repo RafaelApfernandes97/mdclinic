@@ -26,11 +26,17 @@ test('montarComponents monta body com parâmetros posicionais', () => {
   assert.deepEqual(montarComponents([]), []);
 });
 
-test('sendTemplate posta no contrato Mais Chat e retorna o wamid', async () => {
+test('sendTemplate posta no contrato Mais Chat e retorna o wamid (resposta embrulhada)', async () => {
   let url, corpo;
   const fetch = async (u, opts) => {
     url = u; corpo = JSON.parse(opts.body);
-    return ok({ messaging_product: 'whatsapp', messages: [{ id: 'wamid.ABC', message_status: 'accepted' }] });
+    // A API real embrulha a resposta da Meta em { status, data: {...} }.
+    return ok({ status: true, data: {
+      messaging_product: 'whatsapp',
+      contacts: [{ input: '5534999998888', wa_id: '5534999998888' }],
+      messages: [{ id: 'wamid.ABC', message_status: 'accepted' }],
+      msgId: 'mc-internal-1',
+    } });
   };
   const r = await mc(fetch).sendTemplate({ telefone: '5534999998888', variaveis: ['Joao', 'Dra', '30/06', '18:20'] });
   assert.equal(r.idMensagem, 'wamid.ABC');
