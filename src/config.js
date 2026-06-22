@@ -1,5 +1,6 @@
 const OBRIGATORIAS = [
-  'MEDX_BASE_URL', 'MEDX_TOKEN_INTEGRACAO', 'MAISCHAT_BASE_URL', 'MAISCHAT_TOKEN',
+  'MEDX_BASE_URL', 'MEDX_TOKEN_INTEGRACAO', 'MAISCHAT_BASE_URL',
+  'MAISCHAT_APP_ID', 'MAISCHAT_SOURCE', 'MAISCHAT_META_TOKEN',
   'MAISCHAT_TEMPLATE_NOME', 'DASHBOARD_PASSWORD', 'SESSION_SECRET', 'RUN_TOKEN',
 ];
 
@@ -11,7 +12,11 @@ export function carregarConfig(env = process.env) {
     medxBaseUrl: env.MEDX_BASE_URL,
     medxToken: env.MEDX_TOKEN_INTEGRACAO,
     maischatBaseUrl: env.MAISCHAT_BASE_URL,
-    maischatToken: env.MAISCHAT_TOKEN,
+    maischatBroker: env.MAISCHAT_BROKER ?? 'wppCloudAPI',
+    maischatAppId: env.MAISCHAT_APP_ID,
+    maischatSource: env.MAISCHAT_SOURCE,
+    maischatMetaToken: env.MAISCHAT_META_TOKEN,
+    maischatApiKey: env.MAISCHAT_API_KEY ?? null,
     templateNome: env.MAISCHAT_TEMPLATE_NOME,
     templateVariaveis: (env.MAISCHAT_TEMPLATE_VARIAVEIS ?? 'nome,medico,data,hora')
       .split(',').map((v) => v.trim()).filter(Boolean),

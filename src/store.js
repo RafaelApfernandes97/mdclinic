@@ -63,7 +63,7 @@ export function criarStore(caminho) {
     },
     mensagensNaoLidas(dataLote) {
       return db.prepare(`
-        SELECT id_agendamento, id_mensagem FROM envios
+        SELECT id_agendamento, id_mensagem, telefone FROM envios
         WHERE data_lote=? AND status_envio='enviado' AND ack != 'lido'
           AND id_mensagem IS NOT NULL`).all(dataLote);
     },

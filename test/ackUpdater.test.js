@@ -17,10 +17,12 @@ test('atualiza só não-lidas e marca passe feito', async () => {
     passe1_em: '2026-06-21T08:05:00Z', passe2_em: '2026-06-21T09:00:00Z' });
 
   const consultadas = [];
-  const maischat = { getStatusMensagem: async (id) => { consultadas.push(id); return { ack: 'entregue' }; } };
+  const maischat = {
+    getStatusMensagem: async (id, telefone) => { consultadas.push({ id, telefone }); return { ack: 'entregue' }; },
+  };
   const r = await executarPasse({ maischat, store, dataLote: '2026-06-22', numero: 1 });
 
-  assert.deepEqual(consultadas, ['a']); // 'b' já estava lido
+  assert.deepEqual(consultadas, [{ id: 'a', telefone: '55' }]); // 'b' já estava lido, e consulta por destino
   assert.equal(r.atualizados, 1);
   assert.deepEqual(store.passesPendentes('2026-06-21T10:00:00Z').map((p) => p.numero), [2]);
   store.fechar();

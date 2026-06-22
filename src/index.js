@@ -12,7 +12,9 @@ const config = carregarConfig();
 const store = criarStore(config.sqlitePath);
 const medx = criarMedx({ baseUrl: config.medxBaseUrl, token: config.medxToken });
 const maischat = criarMaisChat({
-  baseUrl: config.maischatBaseUrl, token: config.maischatToken,
+  baseUrl: config.maischatBaseUrl, broker: config.maischatBroker,
+  appId: config.maischatAppId, source: config.maischatSource,
+  metaToken: config.maischatMetaToken, apiKey: config.maischatApiKey,
   templateNome: config.templateNome, templateIdioma: config.templateIdioma,
 });
 

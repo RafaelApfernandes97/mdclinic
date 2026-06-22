@@ -4,7 +4,8 @@ import { carregarConfig } from '../src/config.js';
 
 const minimo = {
   MEDX_BASE_URL: 'http://medx', MEDX_TOKEN_INTEGRACAO: 't',
-  MAISCHAT_BASE_URL: 'http://mc', MAISCHAT_TOKEN: 'k',
+  MAISCHAT_BASE_URL: 'http://mc',
+  MAISCHAT_APP_ID: 'app', MAISCHAT_SOURCE: '5511', MAISCHAT_META_TOKEN: 'meta',
   MAISCHAT_TEMPLATE_NOME: 'tpl', DASHBOARD_PASSWORD: 'p',
   SESSION_SECRET: 's', RUN_TOKEN: 'r',
 };
@@ -16,6 +17,13 @@ test('carrega defaults', () => {
   assert.equal(c.ackPasse2Min, 60);
   assert.deepEqual(c.templateVariaveis, ['nome', 'medico', 'data', 'hora']);
   assert.equal(c.port, 3000);
+  assert.equal(c.maischatBroker, 'wppCloudAPI');
+  assert.equal(c.maischatApiKey, null);
+});
+
+test('lança erro se faltar credencial do Mais Chat', () => {
+  const { MAISCHAT_META_TOKEN, ...semMeta } = minimo;
+  assert.throws(() => carregarConfig(semMeta), /MAISCHAT_META_TOKEN/);
 });
 
 test('lança erro se faltar obrigatória', () => {
