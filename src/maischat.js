@@ -47,7 +47,9 @@ export function criarMaisChat({
     if (data?.status === false) {
       throw new Error(`Falha sendTemplate: ${data.message ?? 'erro'} ${JSON.stringify(data.error ?? {})}`);
     }
-    const idMensagem = data?.messages?.[0]?.id ?? null;
+    // A API do Mais Chat embrulha a resposta da Meta em { status, data: {...} }.
+    const payload = data?.data ?? data;
+    const idMensagem = payload?.messages?.[0]?.id ?? null;
     if (!idMensagem) console.warn('[maischat] envio sem wamid retornado — ACK não poderá ser consultado para', telefone);
     return { idMensagem };
   }
