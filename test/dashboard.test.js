@@ -88,3 +88,12 @@ test('/api/atualizar-agenda responde 502 quando MedX falha', async () => {
     assert.equal(res.status, 502);
   });
 });
+
+test('serve o favicon da marca em /favicon.svg', async () => {
+  const app = criarServidor({ store: criarStore(':memory:'), config, executarEnvio: async () => ({}), medx: {} });
+  await comServidor(app, async (port) => {
+    const res = await fetch(`http://127.0.0.1:${port}/favicon.svg`);
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get('content-type') || '', /svg/);
+  });
+});
