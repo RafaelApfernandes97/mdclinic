@@ -121,8 +121,17 @@ function render(d){
     ['Total na agenda',c.total],['Elegíveis',c.elegiveis],['Enviados',c.enviado],
     ['Entregues',c.entregue],['Lidos',c.lido],['Falhas',c.falha],['Pulados',c.pulados]
   ].map(([l,n])=>`<div class="card"><div class="n">${n}</div><div class="l">${esc(l)}</div></div>`).join('');
-  preencherSelect(d.medicos);
+  // popula o seletor com qualquer médico que o snapshot tenha trazido (sem apagar
+  // a lista ao vivo já carregada); a fonte principal é /api/medicos.
+  if(d.medicos && d.medicos.length) preencherSelect(d.medicos);
   desenhar();
+}
+
+async function carregarMedicos(){
+  try{
+    const r=await fetch('/api/medicos');
+    if(r.ok){ const d=await r.json(); preencherSelect(d.medicos); }
+  }catch(e){ /* mantém o que houver no seletor */ }
 }
 
 function desenhar(){
@@ -194,6 +203,7 @@ document.getElementById('data').value=hoje;
 document.getElementById('data').addEventListener('change',carregar);
 document.getElementById('medico').addEventListener('change',desenhar);
 document.getElementById('atualizar').addEventListener('click',atualizar);
+carregarMedicos();
 carregar();
 </script>
 </body></html>

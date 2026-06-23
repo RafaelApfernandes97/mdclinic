@@ -3,7 +3,7 @@ import cookieSession from 'cookie-session';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { timingSafeEqual } from 'node:crypto';
-import { snapshotAgenda } from './agendaSnapshot.js';
+import { snapshotAgenda, mapaMedicos } from './agendaSnapshot.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VIEWS = join(__dirname, '..', 'views');
@@ -41,6 +41,19 @@ export function montarDashboard({ store, config, medx }) {
   router.get('/logout', (req, res) => { req.session = null; res.redirect('/login'); });
 
   router.get('/', exigirSessao, (req, res) => res.sendFile(join(VIEWS, 'dashboard.html')));
+  // lista de médicos para o seletor — busca ao vivo no MedX e cacheia no banco;
+  // se o MedX falhar, devolve o que estiver cacheado.
+  router.get('/api/medicos', exigirSessao, async (req, res) => {
+    try {
+      const usuarios = await medx.getUsuarios();
+      const mapa = mapaMedicos(usuarios, config.medicoCampoNome);
+      for (const [id, nome] of mapa) if (id != null) store.upsertMedico({ id_usuario: id, nome });
+    } catch (e) {
+      console.error('[dashboard] falha ao buscar médicos do MedX, usando cache:', e.message);
+    }
+    res.json({ medicos: store.listarMedicos() });
+  });
+
   router.get('/api/dados', exigirSessao, (req, res) => {
     const data = req.query.data || new Date().toISOString().slice(0, 10);
     res.json({
