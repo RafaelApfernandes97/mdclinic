@@ -21,10 +21,12 @@ export function montarComponents(variaveis) {
 
 export function criarMaisChat({
   baseUrl, broker = 'wppCloudAPI', appId, source, metaToken, apiKey = null,
-  templateNome, templateIdioma = 'pt_BR', fetch = globalThis.fetch,
+  templateNome, templateIdioma = 'pt_BR', fetch = globalThis.fetch, debug = false,
 }) {
   const headers = { 'Content-Type': 'application/json' };
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+  // log de debug (DEBUG=true) — nunca inclui token/credenciais
+  const dbg = (...args) => { if (debug) console.log('[maischat]', ...args); };
 
   async function sendTemplate({ telefone, variaveis }) {
     const url = `${baseUrl}/template/send/${broker}`;
@@ -41,6 +43,7 @@ export function criarMaisChat({
         components: montarComponents(variaveis),
       },
     });
+    dbg(`sendTemplate -> destino=${telefone} template=${templateNome} vars=${variaveis?.length ?? 0}`);
     const r = await fetch(url, { method: 'POST', headers, body });
     if (!r.ok) throw new Error(`Falha sendTemplate: ${r.status} ${await r.text()}`);
     const data = await r.json();
@@ -51,6 +54,7 @@ export function criarMaisChat({
     const payload = data?.data ?? data;
     const idMensagem = payload?.messages?.[0]?.id ?? null;
     if (!idMensagem) console.warn('[maischat] envio sem wamid retornado — ACK não poderá ser consultado para', telefone);
+    dbg(`sendTemplate OK destino=${telefone} wamid=${idMensagem}`);
     return { idMensagem };
   }
 
@@ -63,8 +67,10 @@ export function criarMaisChat({
     const data = await r.json();
     const lista = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
     const msg = lista.find((m) => m.wppMsgId === idMensagem);
-    if (!msg) return { ack: null };
-    return { ack: mapearAck(msg.ack) };
+    if (!msg) { dbg(`ack destino=${destination} wamid=${idMensagem} -> pendente`); return { ack: null }; }
+    const ack = mapearAck(msg.ack);
+    dbg(`ack destino=${destination} wamid=${idMensagem} -> ${ack}`);
+    return { ack };
   }
 
   return { sendTemplate, getStatusMensagem, mapearAck };

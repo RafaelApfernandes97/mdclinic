@@ -62,3 +62,23 @@ test('enviarManual: agendamento inexistente retorna 404', async () => {
   assert.equal(r.ok, false);
   assert.equal(r.status, 404);
 });
+
+function capturarLog(fn) {
+  const linhas = []; const orig = console.log; console.log = (...a) => linhas.push(a.join(' '));
+  return Promise.resolve(fn()).finally(() => { console.log = orig; }).then(() => linhas.join('\n'));
+}
+
+test('enviarManual loga o acionamento e o ENVIADO com wamid', async () => {
+  const store = storeComItem();
+  const maischat = { sendTemplate: async () => ({ idMensagem: 'wamid.M1' }) };
+  const txt = await capturarLog(() => enviarManual({ maischat, store, config: cfg(), idAgendamento: 1 }));
+  assert.match(txt, /\[envio-manual\].*acionado.*1/);
+  assert.match(txt, /\[envio-manual\].*ENVIADO.*wamid\.M1/);
+});
+
+test('enviarManual loga DRY_RUN simulado', async () => {
+  const store = storeComItem();
+  const maischat = { sendTemplate: async () => ({ idMensagem: 'x' }) };
+  const txt = await capturarLog(() => enviarManual({ maischat, store, config: cfg({ dryRun: true }), idAgendamento: 1 }));
+  assert.match(txt, /\[envio-manual\].*(DRY_RUN|simulado)/i);
+});

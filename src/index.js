@@ -16,6 +16,7 @@ const maischat = criarMaisChat({
   appId: config.maischatAppId, source: config.maischatSource,
   metaToken: config.maischatMetaToken, apiKey: config.maischatApiKey,
   templateNome: config.templateNome, templateIdioma: config.templateIdioma,
+  debug: config.debug,
 });
 
 const executarEnvio = () => executarJobEnvio({ medx, maischat, store, config });

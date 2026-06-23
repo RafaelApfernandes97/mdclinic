@@ -64,6 +64,25 @@ test('sendTemplate envia Authorization quando apiKey definido', async () => {
   assert.equal(headers.Authorization, 'Bearer KEY');
 });
 
+test('sendTemplate loga debug quando debug=true (sem vazar o token)', async () => {
+  const fetch = async () => ok({ status: true, data: { messages: [{ id: 'wamid.LOG' }] } });
+  const linhas = []; const orig = console.log; console.log = (...a) => linhas.push(a.join(' '));
+  try { await mc(fetch, { debug: true }).sendTemplate({ telefone: '5511999', variaveis: ['a'] }); }
+  finally { console.log = orig; }
+  const txt = linhas.join('\n');
+  assert.match(txt, /\[maischat\].*sendTemplate/);
+  assert.match(txt, /wamid\.LOG/);
+  assert.doesNotMatch(txt, /META/); // não loga o metaToken
+});
+
+test('sendTemplate não loga debug por padrão (debug=false)', async () => {
+  const fetch = async () => ok({ status: true, data: { messages: [{ id: 'x' }] } });
+  const linhas = []; const orig = console.log; console.log = (...a) => linhas.push(a.join(' '));
+  try { await mc(fetch).sendTemplate({ telefone: '55', variaveis: [] }); }
+  finally { console.log = orig; }
+  assert.doesNotMatch(linhas.join('\n'), /\[maischat\] sendTemplate/);
+});
+
 test('getStatusMensagem busca por destino e casa pelo wppMsgId', async () => {
   let url;
   const fetch = async (u) => {
