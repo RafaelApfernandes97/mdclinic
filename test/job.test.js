@@ -52,3 +52,16 @@ test('erro em um envio não derruba o lote', async () => {
   assert.equal(r.erros, 1);
   assert.equal(r.enviados, 0);
 });
+
+test('grava snapshot completo da agenda (elegíveis + pulados)', async () => {
+  const d = deps();
+  await executarJobEnvio({ ...d, agora: new Date('2026-06-21T11:00:00Z') });
+  // deps() usa GetAgenda com data_lote = amanhã de 2026-06-21 = 2026-06-22
+  const ag = d.store.agendaCompleta('2026-06-22');
+  assert.equal(ag.length, 2); // 1 elegível + 1 bloqueio
+  const bloqueio = ag.find((x) => x.motivo === 'bloqueio');
+  assert.ok(bloqueio);
+  assert.equal(bloqueio.elegivel, 0);
+  const enviado = ag.find((x) => x.elegivel === 1);
+  assert.equal(enviado.ack, 'enviado'); // veio do join com envios
+});

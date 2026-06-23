@@ -3,6 +3,7 @@ import cookieSession from 'cookie-session';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { timingSafeEqual } from 'node:crypto';
+import { snapshotAgenda } from './agendaSnapshot.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VIEWS = join(__dirname, '..', 'views');
@@ -19,7 +20,7 @@ function exigirSessao(req, res, next) {
   return res.redirect('/login');
 }
 
-export function montarDashboard({ store, config }) {
+export function montarDashboard({ store, config, medx }) {
   const router = express.Router();
   router.use(express.urlencoded({ extended: false }));
   router.use(cookieSession({
@@ -44,9 +45,25 @@ export function montarDashboard({ store, config }) {
     const data = req.query.data || new Date().toISOString().slice(0, 10);
     res.json({
       data,
-      resumo: store.resumoPorData(data),
-      porMedico: store.porMedico(data),
-      detalhado: store.detalhado(data),
+      resumo: store.resumoAgenda(data),
+      porMedico: store.porMedicoAgenda(data),
+      agenda: store.agendaCompleta(data),
+    });
+  });
+
+  router.post('/api/atualizar-agenda', exigirSessao, async (req, res) => {
+    const data = req.query.data || new Date().toISOString().slice(0, 10);
+    try {
+      await snapshotAgenda({ medx, store, config, dataLote: data });
+    } catch (e) {
+      console.error('[dashboard] falha ao atualizar agenda:', e.message);
+      return res.status(502).json({ erro: 'Não foi possível atualizar a agenda no MedX.' });
+    }
+    res.json({
+      data,
+      resumo: store.resumoAgenda(data),
+      porMedico: store.porMedicoAgenda(data),
+      agenda: store.agendaCompleta(data),
     });
   });
   return router;

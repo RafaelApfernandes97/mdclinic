@@ -65,3 +65,62 @@ test('agregações do dashboard', () => {
   assert.equal(s.detalhado('2026-06-29').length, 2);
   s.fechar();
 });
+
+test('agenda_itens: upsert, agendaCompleta e resumoAgenda', () => {
+  const s = novaStore();
+  const baseAg = {
+    data_lote: '2026-06-24', id_usuario: 7, nome_medico: 'Dra. Marina',
+    id_paciente: 9, nome_paciente: 'Joao', telefone: '5534999998888',
+    inicio: '2026-06-24T10:00:00', elegivel: 1, motivo: null,
+    descricao: 'JOAO', capturado_em: '2026-06-23T08:00:00Z',
+  };
+  // elegível e enviado (lido)
+  s.upsertAgendaItem({ ...baseAg, id_agendamento: 1 });
+  s.registrarEnvio({
+    id_agendamento: 1, id_paciente: 9, nome_paciente: 'Joao', telefone: '5534999998888',
+    id_usuario: 7, nome_medico: 'Dra. Marina', inicio: '2026-06-24T10:00:00',
+    id_mensagem: 'm1', status_envio: 'enviado', ack: 'lido',
+    data_envio: '2026-06-23T08:00:00Z', data_lote: '2026-06-24', erro: null,
+  });
+  // não elegível (bloqueio), sem envio
+  s.upsertAgendaItem({
+    ...baseAg, id_agendamento: 2, id_paciente: null, nome_paciente: 'FECHADA',
+    telefone: null, inicio: '2026-06-24T11:00:00', elegivel: 0, motivo: 'bloqueio',
+    descricao: 'FECHADA',
+  });
+
+  const ag = s.agendaCompleta('2026-06-24');
+  assert.equal(ag.length, 2);
+  assert.equal(ag[0].nome_paciente, 'Joao');
+  assert.equal(ag[0].ack, 'lido');
+  assert.equal(ag[1].elegivel, 0);
+  assert.equal(ag[1].motivo, 'bloqueio');
+  assert.equal(ag[1].ack, null); // sem envio
+
+  const r = s.resumoAgenda('2026-06-24');
+  assert.equal(r.total, 2);
+  assert.equal(r.elegiveis, 1);
+  assert.equal(r.pulados, 1);
+  assert.equal(r.lido, 1);
+
+  const pm = s.porMedicoAgenda('2026-06-24');
+  assert.equal(pm.length, 1);
+  assert.equal(pm[0].total, 2);
+  s.fechar();
+});
+
+test('agenda_itens: upsert é idempotente (atualiza, não duplica)', () => {
+  const s = novaStore();
+  const item = {
+    id_agendamento: 1, data_lote: '2026-06-24', id_usuario: 7, nome_medico: 'Dra. Marina',
+    id_paciente: 9, nome_paciente: 'Joao', telefone: '5534999998888',
+    inicio: '2026-06-24T10:00:00', elegivel: 1, motivo: null, descricao: 'JOAO',
+    capturado_em: '2026-06-23T08:00:00Z',
+  };
+  s.upsertAgendaItem(item);
+  s.upsertAgendaItem({ ...item, nome_paciente: 'Joao Silva' });
+  const ag = s.agendaCompleta('2026-06-24');
+  assert.equal(ag.length, 1);
+  assert.equal(ag[0].nome_paciente, 'Joao Silva');
+  s.fechar();
+});

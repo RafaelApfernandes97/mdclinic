@@ -1,57 +1,161 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8">
-<title>Dashboard — Confirmação de Agendamento</title>
+<title>Mais Chat — Agenda &amp; Confirmações</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <style>
-  body{font-family:system-ui,Arial,sans-serif;background:#0f172a;color:#e2e8f0;margin:0;padding:1.5rem}
-  header{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap}
-  h1{font-size:1.2rem;margin:0}
-  a.logout{color:#94a3b8;font-size:.85rem}
-  .cards{display:flex;gap:1rem;flex-wrap:wrap;margin:1rem 0}
-  .card{background:#1e293b;border-radius:12px;padding:1rem 1.3rem;min-width:120px}
-  .card .n{font-size:1.6rem;font-weight:700} .card .l{font-size:.8rem;color:#94a3b8}
-  .grid{display:grid;grid-template-columns:1fr 2fr;gap:1rem}
-  .box{background:#1e293b;border-radius:12px;padding:1rem}
-  table{width:100%;border-collapse:collapse;font-size:.85rem}
-  th,td{text-align:left;padding:.4rem .5rem;border-bottom:1px solid #334155}
-  input[type=date]{padding:.4rem;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#e2e8f0}
-  @media(max-width:800px){.grid{grid-template-columns:1fr}}
+  :root{
+    --white:#FFFFFF; --gray-50:#F5F7FA; --gray-100:#EBEEF3; --gray-200:#D2DAE5;
+    --gray-400:#7E98B2; --gray-600:#496280; --gray-800:#354557; --gray-900:#303C4A;
+    --orange-500:#FF710A; --orange-50:#FFF7EC; --blue-500:#2F89FF; --blue-50:#EEF7FF;
+    --green-500:#01C38D; --green-50:#EAFFF6; --red-700:#DB0000; --red-100:#FFDCDC;
+    --yellow-500:#FFA500; --yellow-100:#FFF5C5;
+    --radius-sm:10px; --radius-md:15px;
+    --shadow-100:0 2px 4px -2px rgba(24,39,75,.12),0 4px 4px -2px rgba(24,39,75,.08);
+    --shadow-200:0 4px 6px -4px rgba(24,39,75,.12),0 8px 8px -4px rgba(24,39,75,.08);
+  }
+  *{box-sizing:border-box}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    background:var(--gray-50);color:var(--gray-900);margin:0;padding:1.5rem;line-height:1.5}
+  header{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1.2rem}
+  .brand{display:flex;align-items:center;gap:.6rem}
+  .brand img{width:32px;height:32px}
+  .brand h1{font-size:1.15rem;margin:0;font-weight:700}
+  .brand span{color:var(--gray-600);font-weight:500;font-size:.95rem}
+  .controls{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+  input[type=date]{font:inherit;padding:.45rem .6rem;border-radius:var(--radius-sm);
+    border:1px solid var(--gray-200);background:var(--white);color:var(--gray-900)}
+  button.primary{font:inherit;font-weight:600;cursor:pointer;border:0;border-radius:var(--radius-sm);
+    background:var(--gray-800);color:var(--white);padding:.5rem .9rem}
+  button.primary:disabled{opacity:.6;cursor:default}
+  a.logout{color:var(--blue-500);font-size:.85rem;text-decoration:none}
+  .toast{display:none;background:var(--red-100);color:var(--red-700);padding:.6rem .9rem;
+    border-radius:var(--radius-sm);margin-bottom:1rem;font-size:.9rem}
+  .cards{display:flex;gap:.8rem;flex-wrap:wrap;margin-bottom:1.2rem}
+  .card{background:var(--white);border:1px solid var(--gray-100);border-radius:var(--radius-md);
+    padding:.9rem 1.1rem;min-width:110px;box-shadow:var(--shadow-100)}
+  .card .n{font-size:1.5rem;font-weight:700} .card .l{font-size:.78rem;color:var(--gray-600)}
+  .box{background:var(--white);border:1px solid var(--gray-100);border-radius:var(--radius-md);
+    padding:1rem;box-shadow:var(--shadow-100);margin-bottom:1.2rem}
+  .medico-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem}
+  .medico-hd h2{font-size:1rem;margin:0;font-weight:600}
+  .medico-hd .badge{background:var(--orange-50);color:var(--orange-500);font-weight:600;
+    font-size:.75rem;padding:.15rem .55rem;border-radius:9999px}
+  table{width:100%;border-collapse:collapse;font-size:.86rem}
+  th,td{text-align:left;padding:.45rem .5rem;border-bottom:1px solid var(--gray-100)}
+  th{color:var(--gray-600);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
+  tr.inelegivel{opacity:.6}
+  .chip{display:inline-block;font-size:.74rem;font-weight:600;padding:.12rem .5rem;border-radius:9999px}
+  .chip-success{background:var(--green-50);color:var(--green-500)}
+  .chip-info{background:var(--blue-50);color:var(--blue-500)}
+  .chip-accent{background:var(--orange-50);color:var(--orange-500)}
+  .chip-error{background:var(--red-100);color:var(--red-700)}
+  .chip-warn{background:var(--yellow-100);color:#8a6d00}
+  .chip-gray{background:var(--gray-100);color:var(--gray-600)}
+  .vazio{color:var(--gray-600);text-align:center;padding:2rem}
 </style></head><body>
 <header>
-  <h1>Confirmação de Agendamento</h1>
-  <div><input type="date" id="data"> <a class="logout" href="/logout">sair</a></div>
+  <div class="brand">
+    <img src="/favicon.svg" alt="Mais Chat">
+    <h1>Mais Chat</h1><span>Agenda &amp; Confirmações</span>
+  </div>
+  <div class="controls">
+    <input type="date" id="data">
+    <button class="primary" id="atualizar">Atualizar agenda</button>
+    <a class="logout" href="/logout">sair</a>
+  </div>
 </header>
+<div class="toast" id="toast"></div>
 <div class="cards" id="cards"></div>
-<div class="grid">
-  <div class="box"><canvas id="grafico"></canvas></div>
-  <div class="box"><table id="tabela"><thead><tr>
-    <th>Paciente</th><th>Telefone</th><th>Médico</th><th>Consulta</th><th>ACK</th><th>Enviado</th>
-  </tr></thead><tbody></tbody></table></div>
-</div>
+<div class="box"><canvas id="grafico" height="90"></canvas></div>
+<div id="agendas"></div>
 <script>
+const esc=(s)=>String(s??'').replace(/[&<>"']/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const hora=(iso)=> iso? String(iso).split('T')[1]?.slice(0,5) ?? '' : '';
 let chart;
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const fmt = (iso)=> iso? new Date(iso).toLocaleString('pt-BR'):'';
-async function carregar(){
-  const data=document.getElementById('data').value;
-  const r=await fetch('/api/dados?data='+data); const d=await r.json();
+
+function statusInfo(r){
+  if(r.elegivel===0){
+    const m={bloqueio:['Bloqueio','chip-gray'],sem_telefone:['Sem telefone','chip-warn'],sem_paciente:['Sem paciente','chip-warn']};
+    return m[r.motivo]||['Não elegível','chip-gray'];
+  }
+  if(r.ack==='lido')return['Lido','chip-success'];
+  if(r.ack==='entregue')return['Entregue','chip-info'];
+  if(r.ack==='falha'||r.status_envio==='erro')return['Falha','chip-error'];
+  if(r.ack==='enviado')return['Enviado','chip-accent'];
+  return['Pendente','chip-gray'];
+}
+
+function render(d){
   const c=d.resumo;
   document.getElementById('cards').innerHTML=[
-    ['Total',c.total],['Enviado',c.enviado],['Entregue',c.entregue],['Lido',c.lido],['Falha',c.falha]
-  ].map(([l,n])=>`<div class="card"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
-  const tb=document.querySelector('#tabela tbody');
-  tb.innerHTML=d.detalhado.map(e=>`<tr><td>${esc(e.nome_paciente)}</td><td>${esc(e.telefone)}</td>
-    <td>${esc(e.nome_medico)}</td><td>${fmt(e.inicio)}</td><td>${esc(e.ack)}</td><td>${fmt(e.data_envio)}</td></tr>`).join('');
-  const labels=d.porMedico.map(m=>m.nome_medico), valores=d.porMedico.map(m=>m.total);
+    ['Total na agenda',c.total],['Elegíveis',c.elegiveis],['Enviados',c.enviado],
+    ['Entregues',c.entregue],['Lidos',c.lido],['Falhas',c.falha],['Pulados',c.pulados]
+  ].map(([l,n])=>`<div class="card"><div class="n">${n}</div><div class="l">${esc(l)}</div></div>`).join('');
+
+  const grupos={};
+  for(const r of d.agenda){ (grupos[r.nome_medico]??=[]).push(r); }
+  const nomes=Object.keys(grupos);
+  const cont=document.getElementById('agendas');
+  if(!nomes.length){ cont.innerHTML='<div class="box vazio">Sem agenda para esta data.</div>'; }
+  else {
+    cont.innerHTML=nomes.map((med)=>{
+      const linhas=grupos[med].map((r)=>{
+        const [txt,cls]=statusInfo(r);
+        return `<tr class="${r.elegivel===0?'inelegivel':''}">
+          <td>${esc(hora(r.inicio))}</td><td>${esc(r.nome_paciente)}</td>
+          <td>${esc(r.telefone)}</td><td><span class="chip ${cls}">${esc(txt)}</span></td></tr>`;
+      }).join('');
+      return `<div class="box"><div class="medico-hd"><h2>${esc(med)}</h2>
+        <span class="badge">${grupos[med].length} agendamento(s)</span></div>
+        <table><thead><tr><th>Hora</th><th>Paciente</th><th>Telefone</th><th>Status</th></tr></thead>
+        <tbody>${linhas}</tbody></table></div>`;
+    }).join('');
+  }
+
+  const labels=d.porMedico.map((m)=>m.nome_medico), valores=d.porMedico.map((m)=>m.total);
   if(chart)chart.destroy();
   chart=new Chart(document.getElementById('grafico'),{type:'bar',
-    data:{labels,datasets:[{label:'Envios por médico',data:valores,backgroundColor:'#2563eb'}]},
-    options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#94a3b8'}},y:{ticks:{color:'#94a3b8'}}}}});
+    data:{labels,datasets:[{label:'Agendamentos por médico',data:valores,backgroundColor:'#FF710A',borderRadius:6}]},
+    options:{plugins:{legend:{display:false}},scales:{
+      x:{ticks:{color:'#496280'},grid:{display:false}},
+      y:{ticks:{color:'#496280'},grid:{color:'#EBEEF3'}}}}});
 }
+
+function mostrarErro(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.style.display='block';
+  setTimeout(()=>{t.style.display='none';},4000);
+}
+
+async function carregar(){
+  const data=document.getElementById('data').value;
+  const r=await fetch('/api/dados?data='+data);
+  if(!r.ok){ mostrarErro('Falha ao carregar os dados.'); return; }
+  render(await r.json());
+}
+
+async function atualizar(){
+  const btn=document.getElementById('atualizar');
+  const data=document.getElementById('data').value;
+  btn.disabled=true; btn.textContent='Atualizando…';
+  try{
+    const r=await fetch('/api/atualizar-agenda?data='+data,{method:'POST'});
+    if(!r.ok){ mostrarErro('Não foi possível atualizar a agenda no MedX.'); return; }
+    render(await r.json());
+  } finally { btn.disabled=false; btn.textContent='Atualizar agenda'; }
+}
+
 const hoje=new Date().toISOString().slice(0,10);
 document.getElementById('data').value=hoje;
 document.getElementById('data').addEventListener('change',carregar);
+document.getElementById('atualizar').addEventListener('click',atualizar);
 carregar();
 </script>
 </body></html>

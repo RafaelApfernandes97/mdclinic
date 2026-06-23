@@ -1,11 +1,6 @@
 import { amanhaISO, agoraISO } from './datas.js';
 import { ehElegivel, montarEnvio } from './agendamentos.js';
-
-function mapaMedicos(usuarios, campoNome = 'Nome') {
-  const m = new Map();
-  for (const u of usuarios) m.set(u.Id_Usuario, u[campoNome] ?? u.Nome ?? 'Desconhecido');
-  return m;
-}
+import { mapaMedicos, gravarSnapshot } from './agendaSnapshot.js';
 
 function montarVariaveis(envio, ordem) {
   const valores = {
@@ -22,6 +17,12 @@ export async function executarJobEnvio({ medx, maischat, store, config, agora = 
     medx.getAgenda(dataLote, dataLote), medx.getUsuarios(),
   ]);
   const mapa = mapaMedicos(usuarios, config.medicoCampoNome);
+
+  try {
+    gravarSnapshot({ store, agenda, mapa, dataLote, agora });
+  } catch (e) {
+    console.error('[job] falha ao gravar snapshot da agenda:', e.message);
+  }
 
   let enviados = 0, pulados = 0, erros = 0;
   let primeiroEnvioIso = null, ultimoEnvioIso = null;
