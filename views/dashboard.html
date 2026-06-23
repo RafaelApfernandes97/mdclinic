@@ -73,6 +73,9 @@
     border:0;border-radius:8px;background:transparent;color:var(--green-500);cursor:pointer;transition:background .12s}
   .enviar:hover{background:var(--green-50)}
   .enviar:disabled{opacity:.5;cursor:default}
+  /* com um único médico selecionado, a lista rola por dentro (página não rola) */
+  #agendas.uma .tab-wrap{max-height:calc(100vh - 220px);overflow-y:auto}
+  #agendas.uma thead th{position:sticky;top:0;background:var(--white);z-index:1}
 </style></head><body>
 <header>
   <div class="brand">
@@ -168,6 +171,7 @@ function desenhar(){
   for(const r of linhas){ (grupos[r.nome_medico]??=[]).push(r); }
   const nomes=Object.keys(grupos);
   const cont=document.getElementById('agendas');
+  cont.classList.toggle('uma', !!medSel); // rolagem interna quando 1 médico
   if(!d.agenda.length){
     cont.innerHTML='<div class="box vazio">Sem agenda para esta data.</div>';
   } else if(!base.length){
@@ -188,8 +192,8 @@ function desenhar(){
       }).join('');
       return `<div class="box"><div class="medico-hd"><h2>${esc(med)}</h2>
         <span class="badge">${grupos[med].length} agendamento(s)</span></div>
-        <table><thead><tr><th class="acao"></th><th>Hora</th><th>Paciente</th><th>Telefone</th><th>Status</th></tr></thead>
-        <tbody>${ls}</tbody></table></div>`;
+        <div class="tab-wrap"><table><thead><tr><th class="acao"></th><th>Hora</th><th>Paciente</th><th>Telefone</th><th>Status</th></tr></thead>
+        <tbody>${ls}</tbody></table></div></div>`;
     }).join('');
   }
 
