@@ -39,7 +39,10 @@
     border-radius:var(--radius-sm);margin-bottom:1rem;font-size:.9rem}
   .cards{display:flex;gap:.8rem;flex-wrap:wrap;margin-bottom:1.2rem}
   .card{background:var(--white);border:1px solid var(--gray-100);border-radius:var(--radius-md);
-    padding:.9rem 1.1rem;min-width:110px;box-shadow:var(--shadow-100)}
+    padding:.9rem 1.1rem;min-width:110px;box-shadow:var(--shadow-100);cursor:pointer;
+    user-select:none;transition:border-color .12s,box-shadow .12s}
+  .card:hover{border-color:var(--gray-200)}
+  .card.ativa{border-color:var(--orange-500);box-shadow:0 0 0 2px var(--orange-50)}
   .card .n{font-size:1.5rem;font-weight:700} .card .l{font-size:.78rem;color:var(--gray-600)}
   /* duas colunas em uma linha: lista à esquerda, gráfico à direita */
   .split{display:grid;grid-template-columns:1.4fr 1fr;gap:1.2rem;align-items:start}
@@ -90,7 +93,19 @@
 <script>
 const esc=(s)=>String(s??'').replace(/[&<>"']/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const hora=(iso)=> iso? String(iso).split('T')[1]?.slice(0,5) ?? '' : '';
-let chart, ultimo=null;
+let chart, ultimo=null, statusFiltro='total';
+// [chave, rótulo, predicado da linha] — define os cards e o filtro de status
+const CARDS=[
+  ['total','Total na agenda',()=>true],
+  ['elegiveis','Elegíveis',(r)=>r.elegivel===1],
+  ['enviado','Enviados',(r)=>r.ack==='enviado'],
+  ['entregue','Entregues',(r)=>r.ack==='entregue'],
+  ['lido','Lidos',(r)=>r.ack==='lido'],
+  ['falha','Falhas',(r)=>r.ack==='falha'||r.status_envio==='erro'],
+  ['pulados','Sem envio',(r)=>r.elegivel===0],
+];
+const predicado=(k)=>(CARDS.find((c)=>c[0]===k)||CARDS[0])[2];
+const rotulo=(k)=>(CARDS.find((c)=>c[0]===k)||[])[1]||'';
 
 function statusInfo(r){
   if(r.elegivel===0){
@@ -116,11 +131,6 @@ function preencherSelect(medicos){
 
 function render(d){
   ultimo=d;
-  const c=d.resumo;
-  document.getElementById('cards').innerHTML=[
-    ['Total na agenda',c.total],['Elegíveis',c.elegiveis],['Enviados',c.enviado],
-    ['Entregues',c.entregue],['Lidos',c.lido],['Falhas',c.falha],['Pulados',c.pulados]
-  ].map(([l,n])=>`<div class="card"><div class="n">${n}</div><div class="l">${esc(l)}</div></div>`).join('');
   // popula o seletor com qualquer médico que o snapshot tenha trazido (sem apagar
   // a lista ao vivo já carregada); a fonte principal é /api/medicos.
   if(d.medicos && d.medicos.length) preencherSelect(d.medicos);
@@ -137,17 +147,26 @@ async function carregarMedicos(){
 function desenhar(){
   const d=ultimo; if(!d) return;
   const medSel=document.getElementById('medico').value;
-  const linhas = medSel ? d.agenda.filter((r)=>r.nome_medico===medSel) : d.agenda;
+  // base = filtrada por médico (os cards refletem esse recorte)
+  const base = medSel ? d.agenda.filter((r)=>r.nome_medico===medSel) : d.agenda;
 
-  // ---- lista (esquerda), agrupada por médico ----
+  // ---- cards (clicáveis: filtram a lista por status) ----
+  document.getElementById('cards').innerHTML=CARDS.map(([k,l,pred])=>
+    `<div class="card ${k===statusFiltro?'ativa':''}" data-k="${k}">
+       <div class="n">${base.filter(pred).length}</div><div class="l">${esc(l)}</div></div>`).join('');
+
+  // ---- lista (esquerda): filtro de médico + filtro de status (card ativo) ----
+  const linhas = base.filter(predicado(statusFiltro));
   const grupos={};
   for(const r of linhas){ (grupos[r.nome_medico]??=[]).push(r); }
   const nomes=Object.keys(grupos);
   const cont=document.getElementById('agendas');
   if(!d.agenda.length){
     cont.innerHTML='<div class="box vazio">Sem agenda para esta data.</div>';
-  } else if(!nomes.length){
+  } else if(!base.length){
     cont.innerHTML='<div class="box vazio">Sem agendamentos para este médico nesta data.</div>';
+  } else if(!nomes.length){
+    cont.innerHTML='<div class="box vazio">Nenhum agendamento em “'+esc(rotulo(statusFiltro))+'” para este filtro.</div>';
   } else {
     cont.innerHTML=nomes.map((med)=>{
       const ls=grupos[med].map((r)=>{
@@ -202,6 +221,13 @@ const hoje=new Date().toISOString().slice(0,10);
 document.getElementById('data').value=hoje;
 document.getElementById('data').addEventListener('change',carregar);
 document.getElementById('medico').addEventListener('change',desenhar);
+document.getElementById('cards').addEventListener('click',(e)=>{
+  const card=e.target.closest('.card'); if(!card) return;
+  const k=card.dataset.k;
+  // clicar no card já ativo (exceto "Total") volta para "Total"
+  statusFiltro = (k===statusFiltro && k!=='total') ? 'total' : k;
+  desenhar();
+});
 document.getElementById('atualizar').addEventListener('click',atualizar);
 carregarMedicos();
 carregar();
