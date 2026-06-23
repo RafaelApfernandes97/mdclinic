@@ -97,3 +97,15 @@ test('serve o favicon da marca em /favicon.svg', async () => {
     assert.match(res.headers.get('content-type') || '', /svg/);
   });
 });
+
+test('dashboard autenticado serve a página rebrandada', async () => {
+  const app = criarServidor({ store: storeComAgenda(), config, executarEnvio: async () => ({}), medx: {} });
+  await comServidor(app, async (port) => {
+    const cookie = await login(port);
+    const res = await fetch(`http://127.0.0.1:${port}/`, { headers: { cookie } });
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.match(html, /Mais Chat/);
+    assert.match(html, /Atualizar agenda/);
+  });
+});
