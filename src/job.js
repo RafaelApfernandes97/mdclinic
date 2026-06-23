@@ -24,12 +24,13 @@ export async function executarJobEnvio({ medx, maischat, store, config, agora = 
     console.error('[job] falha ao gravar snapshot da agenda:', e.message);
   }
 
-  let enviados = 0, pulados = 0, erros = 0;
+  let enviados = 0, pulados = 0, erros = 0, simulados = 0;
   let primeiroEnvioIso = null, ultimoEnvioIso = null;
 
   for (const item of agenda) {
     if (!ehElegivel(item)) { pulados++; continue; }
     if (store.jaEnviado(item.Id_Agendamento)) { pulados++; continue; }
+    if (config.dryRun) { simulados++; continue; }
     const envio = montarEnvio(item, mapa);
     const variaveis = montarVariaveis(envio, config.templateVariaveis);
     const ts = agoraISO();
@@ -80,6 +81,10 @@ export async function executarJobEnvio({ medx, maischat, store, config, agora = 
     store.criarLote({ data_lote: dataLote, fim_campanha: ultimoEnvioIso, passe1_em: p1, passe2_em: p2 });
   }
 
-  console.log(`[job] concluído: ${enviados} enviados, ${pulados} pulados, ${erros} erros`);
-  return { enviados, pulados, erros, dataLote };
+  if (config.dryRun) {
+    console.log(`[job] DRY_RUN ativo: ${simulados} envios simulados, ${pulados} pulados (0 enviados, nenhuma mensagem enviada)`);
+  } else {
+    console.log(`[job] concluído: ${enviados} enviados, ${pulados} pulados, ${erros} erros`);
+  }
+  return { enviados, pulados, erros, simulados, dataLote, dryRun: config.dryRun };
 }

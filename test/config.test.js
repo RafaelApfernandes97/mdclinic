@@ -21,6 +21,13 @@ test('carrega defaults', () => {
   assert.equal(c.maischatApiKey, null);
 });
 
+test('dryRun: padrão false, true só quando DRY_RUN==="true"', () => {
+  assert.equal(carregarConfig(minimo).dryRun, false);
+  assert.equal(carregarConfig({ ...minimo, DRY_RUN: 'true' }).dryRun, true);
+  assert.equal(carregarConfig({ ...minimo, DRY_RUN: 'false' }).dryRun, false);
+  assert.equal(carregarConfig({ ...minimo, DRY_RUN: '1' }).dryRun, false);
+});
+
 test('lança erro se faltar credencial do Mais Chat', () => {
   const { MAISCHAT_META_TOKEN, ...semMeta } = minimo;
   assert.throws(() => carregarConfig(semMeta), /MAISCHAT_META_TOKEN/);

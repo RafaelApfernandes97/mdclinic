@@ -31,5 +31,6 @@ export function carregarConfig(env = process.env) {
     sessionSecret: env.SESSION_SECRET,
     port: Number(env.PORT ?? 3000),
     sqlitePath: env.SQLITE_PATH ?? './data/envios.db',
+    dryRun: env.DRY_RUN === 'true',
   };
 }

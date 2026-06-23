@@ -44,6 +44,23 @@ test('não reenvia já enviado', async () => {
   assert.equal(r2.enviados, 0);
 });
 
+test('DRY_RUN: snapshot da agenda mas nenhum envio', async () => {
+  const d = deps({ config: {
+    templateVariaveis: ['nome', 'medico', 'data', 'hora'],
+    ackPasse1Min: 5, ackPasse2Min: 60, medicoCampoNome: 'Nome', dryRun: true,
+  } });
+  const r = await executarJobEnvio({ ...d, agora: new Date('2026-06-21T11:00:00Z') });
+  // nada enviado
+  assert.equal(d.enviados.length, 0);
+  assert.equal(r.enviados, 0);
+  assert.equal(r.simulados, 1); // 1 elegível seria enviado
+  assert.equal(r.dryRun, true);
+  // mas a agenda completa foi capturada (snapshot) e o elegível NÃO ficou "enviado"
+  const ag = d.store.agendaCompleta('2026-06-22');
+  assert.equal(ag.length, 2);
+  assert.equal(d.store.jaEnviado(1), false);
+});
+
 test('erro em um envio não derruba o lote', async () => {
   const d = deps({
     maischat: { sendTemplate: async () => { throw new Error('falhou'); } },
