@@ -48,6 +48,7 @@ export function montarDashboard({ store, config, medx }) {
       resumo: store.resumoAgenda(data),
       porMedico: store.porMedicoAgenda(data),
       agenda: store.agendaCompleta(data),
+      medicos: store.listarMedicos(),
     });
   });
 
@@ -64,6 +65,7 @@ export function montarDashboard({ store, config, medx }) {
       resumo: store.resumoAgenda(data),
       porMedico: store.porMedicoAgenda(data),
       agenda: store.agendaCompleta(data),
+      medicos: store.listarMedicos(),
     });
   });
   return router;

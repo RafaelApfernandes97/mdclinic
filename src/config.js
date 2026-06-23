@@ -21,7 +21,7 @@ export function carregarConfig(env = process.env) {
     templateVariaveis: (env.MAISCHAT_TEMPLATE_VARIAVEIS ?? 'nome,medico,data,hora')
       .split(',').map((v) => v.trim()).filter(Boolean),
     templateIdioma: env.MAISCHAT_TEMPLATE_IDIOMA ?? 'pt_BR',
-    medicoCampoNome: env.MEDX_MEDICO_CAMPO ?? 'Nome',
+    medicoCampoNome: env.MEDX_MEDICO_CAMPO ?? 'Usuario',
     cronHorario: env.CRON_HORARIO ?? '0 8 * * *',
     ackPasse1Min: Number(env.ACK_PASSE1_MIN ?? 5),
     ackPasse2Min: Number(env.ACK_PASSE2_MIN ?? 60),

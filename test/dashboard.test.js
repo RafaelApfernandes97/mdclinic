@@ -40,6 +40,20 @@ async function login(port) {
   return res.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
 }
 
+test('/api/dados inclui a lista de médicos (para o seletor)', async () => {
+  const store = storeComAgenda();
+  store.upsertMedico({ id_usuario: 8, nome: 'Dr. Carlos Mendes' });
+  store.upsertMedico({ id_usuario: 7, nome: 'Dra. Marina Souza' });
+  const app = criarServidor({ store, config, executarEnvio: async () => ({}), medx: {} });
+  await comServidor(app, async (port) => {
+    const cookie = await login(port);
+    const res = await fetch(`http://127.0.0.1:${port}/api/dados?data=2026-06-24`, { headers: { cookie } });
+    const d = await res.json();
+    assert.equal(Array.isArray(d.medicos), true);
+    assert.deepEqual(d.medicos.map((m) => m.nome), ['Dr. Carlos Mendes', 'Dra. Marina Souza']);
+  });
+});
+
 test('/api/dados sem sessão redireciona', async () => {
   const app = criarServidor({ store: storeComAgenda(), config, executarEnvio: async () => ({}), medx: {} });
   await comServidor(app, async (port) => {

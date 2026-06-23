@@ -43,6 +43,10 @@ CREATE TABLE IF NOT EXISTS agenda_itens (
   capturado_em   TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_agenda_lote ON agenda_itens(data_lote);
+CREATE TABLE IF NOT EXISTS medicos (
+  id_usuario INTEGER PRIMARY KEY,
+  nome       TEXT
+);
 `;
 
 export function criarStore(caminho) {
@@ -75,7 +79,18 @@ export function criarStore(caminho) {
       descricao=excluded.descricao, capturado_em=excluded.capturado_em
   `);
 
+  const upsertMedicoStmt = db.prepare(`
+    INSERT INTO medicos (id_usuario, nome) VALUES (@id_usuario, @nome)
+    ON CONFLICT(id_usuario) DO UPDATE SET nome=excluded.nome
+  `);
+
   return {
+    upsertMedico(m) {
+      upsertMedicoStmt.run(m);
+    },
+    listarMedicos() {
+      return db.prepare(`SELECT id_usuario, nome FROM medicos ORDER BY nome`).all();
+    },
     jaEnviado(id) {
       const r = db.prepare(
         `SELECT 1 FROM envios WHERE id_agendamento=? AND status_envio='enviado'`).get(id);

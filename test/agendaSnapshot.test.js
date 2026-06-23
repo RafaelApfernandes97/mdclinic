@@ -14,6 +14,27 @@ test('classificarItem: motivo por precedência', () => {
     { elegivel: 1, motivo: null });
 });
 
+test('mapaMedicos: aceita formato real do MedX (IddoUsuario/Usuario)', () => {
+  const m = mapaMedicos([
+    { IddoUsuario: -1212054111, Usuario: 'dramarinadedeus' },
+    { IddoUsuario: 578834368, Usuario: 'draliviaaraujo' },
+  ], 'Usuario');
+  assert.equal(m.get(-1212054111), 'dramarinadedeus');
+  assert.equal(m.get(578834368), 'draliviaaraujo');
+});
+
+test('gravarSnapshot persiste todos os médicos do mapa (mesmo sem agenda)', () => {
+  const store = criarStore(':memory:');
+  const mapa = mapaMedicos([
+    { IddoUsuario: 7, Usuario: 'dramarina' },
+    { IddoUsuario: 8, Usuario: 'drcarlos' },
+  ], 'Usuario');
+  gravarSnapshot({ store, agenda: [], mapa, dataLote: '2026-06-24', agora: new Date('2026-06-23T08:00:00Z') });
+  // listarMedicos já vem ordenado por nome (ASCII: 'dramarina' < 'drcarlos')
+  assert.deepEqual(store.listarMedicos().map((m) => m.nome), ['dramarina', 'drcarlos']);
+  store.fechar();
+});
+
 test('gravarSnapshot grava todos os itens (elegíveis + pulados) sem enviar', () => {
   const store = criarStore(':memory:');
   const agenda = [

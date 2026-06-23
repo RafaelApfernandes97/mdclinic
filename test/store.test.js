@@ -109,6 +109,17 @@ test('agenda_itens: upsert, agendaCompleta e resumoAgenda', () => {
   s.fechar();
 });
 
+test('medicos: upsert idempotente e listagem ordenada por nome', () => {
+  const s = novaStore();
+  s.upsertMedico({ id_usuario: 8, nome: 'Dr. Carlos' });
+  s.upsertMedico({ id_usuario: 7, nome: 'Dra. Marina' });
+  s.upsertMedico({ id_usuario: 7, nome: 'Dra. Marina Souza' }); // mesmo id -> atualiza
+  const meds = s.listarMedicos();
+  assert.equal(meds.length, 2);
+  assert.deepEqual(meds.map((m) => m.nome), ['Dr. Carlos', 'Dra. Marina Souza']);
+  s.fechar();
+});
+
 test('agenda_itens: upsert é idempotente (atualiza, não duplica)', () => {
   const s = novaStore();
   const item = {

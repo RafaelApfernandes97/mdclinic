@@ -29,8 +29,8 @@
   .brand h1{font-size:1.15rem;margin:0;font-weight:700}
   .brand span{color:var(--gray-600);font-weight:500;font-size:.95rem}
   .controls{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
-  input[type=date]{font:inherit;padding:.45rem .6rem;border-radius:var(--radius-sm);
-    border:1px solid var(--gray-200);background:var(--white);color:var(--gray-900)}
+  input[type=date],select{font:inherit;padding:.45rem .6rem;border-radius:var(--radius-sm);
+    border:1px solid var(--gray-200);background:var(--white);color:var(--gray-900);max-width:240px}
   button.primary{font:inherit;font-weight:600;cursor:pointer;border:0;border-radius:var(--radius-sm);
     background:var(--gray-800);color:var(--white);padding:.5rem .9rem}
   button.primary:disabled{opacity:.6;cursor:default}
@@ -41,8 +41,14 @@
   .card{background:var(--white);border:1px solid var(--gray-100);border-radius:var(--radius-md);
     padding:.9rem 1.1rem;min-width:110px;box-shadow:var(--shadow-100)}
   .card .n{font-size:1.5rem;font-weight:700} .card .l{font-size:.78rem;color:var(--gray-600)}
+  /* duas colunas em uma linha: lista à esquerda, gráfico à direita */
+  .split{display:grid;grid-template-columns:1.4fr 1fr;gap:1.2rem;align-items:start}
+  @media(max-width:900px){.split{grid-template-columns:1fr}}
   .box{background:var(--white);border:1px solid var(--gray-100);border-radius:var(--radius-md);
     padding:1rem;box-shadow:var(--shadow-100);margin-bottom:1.2rem}
+  .col-grafico{position:sticky;top:1.5rem}
+  .col-grafico h2{font-size:.95rem;margin:0 0 .8rem;font-weight:600;color:var(--gray-800)}
+  .chart-wrap{height:320px;position:relative}
   .medico-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem}
   .medico-hd h2{font-size:1rem;margin:0;font-weight:600}
   .medico-hd .badge{background:var(--orange-50);color:var(--orange-500);font-weight:600;
@@ -67,18 +73,24 @@
   </div>
   <div class="controls">
     <input type="date" id="data">
+    <select id="medico" title="Filtrar por médico"><option value="">Todos os médicos</option></select>
     <button class="primary" id="atualizar">Atualizar agenda</button>
     <a class="logout" href="/logout">sair</a>
   </div>
 </header>
 <div class="toast" id="toast"></div>
 <div class="cards" id="cards"></div>
-<div class="box"><canvas id="grafico" height="90"></canvas></div>
-<div id="agendas"></div>
+<div class="split">
+  <div id="agendas"></div>
+  <div class="box col-grafico">
+    <h2>Agendamentos por médico</h2>
+    <div class="chart-wrap"><canvas id="grafico"></canvas></div>
+  </div>
+</div>
 <script>
 const esc=(s)=>String(s??'').replace(/[&<>"']/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const hora=(iso)=> iso? String(iso).split('T')[1]?.slice(0,5) ?? '' : '';
-let chart;
+let chart, ultimo=null;
 
 function statusInfo(r){
   if(r.elegivel===0){
@@ -92,21 +104,44 @@ function statusInfo(r){
   return['Pendente','chip-gray'];
 }
 
+function preencherSelect(medicos){
+  const sel=document.getElementById('medico');
+  const atual=sel.value;
+  const opts=['<option value="">Todos os médicos</option>']
+    .concat((medicos||[]).map((m)=>`<option value="${esc(m.nome)}">${esc(m.nome)}</option>`));
+  sel.innerHTML=opts.join('');
+  // preserva a seleção se o médico ainda existe na lista
+  if(atual && (medicos||[]).some((m)=>m.nome===atual)) sel.value=atual;
+}
+
 function render(d){
+  ultimo=d;
   const c=d.resumo;
   document.getElementById('cards').innerHTML=[
     ['Total na agenda',c.total],['Elegíveis',c.elegiveis],['Enviados',c.enviado],
     ['Entregues',c.entregue],['Lidos',c.lido],['Falhas',c.falha],['Pulados',c.pulados]
   ].map(([l,n])=>`<div class="card"><div class="n">${n}</div><div class="l">${esc(l)}</div></div>`).join('');
+  preencherSelect(d.medicos);
+  desenhar();
+}
 
+function desenhar(){
+  const d=ultimo; if(!d) return;
+  const medSel=document.getElementById('medico').value;
+  const linhas = medSel ? d.agenda.filter((r)=>r.nome_medico===medSel) : d.agenda;
+
+  // ---- lista (esquerda), agrupada por médico ----
   const grupos={};
-  for(const r of d.agenda){ (grupos[r.nome_medico]??=[]).push(r); }
+  for(const r of linhas){ (grupos[r.nome_medico]??=[]).push(r); }
   const nomes=Object.keys(grupos);
   const cont=document.getElementById('agendas');
-  if(!nomes.length){ cont.innerHTML='<div class="box vazio">Sem agenda para esta data.</div>'; }
-  else {
+  if(!d.agenda.length){
+    cont.innerHTML='<div class="box vazio">Sem agenda para esta data.</div>';
+  } else if(!nomes.length){
+    cont.innerHTML='<div class="box vazio">Sem agendamentos para este médico nesta data.</div>';
+  } else {
     cont.innerHTML=nomes.map((med)=>{
-      const linhas=grupos[med].map((r)=>{
+      const ls=grupos[med].map((r)=>{
         const [txt,cls]=statusInfo(r);
         return `<tr class="${r.elegivel===0?'inelegivel':''}">
           <td>${esc(hora(r.inicio))}</td><td>${esc(r.nome_paciente)}</td>
@@ -115,17 +150,19 @@ function render(d){
       return `<div class="box"><div class="medico-hd"><h2>${esc(med)}</h2>
         <span class="badge">${grupos[med].length} agendamento(s)</span></div>
         <table><thead><tr><th>Hora</th><th>Paciente</th><th>Telefone</th><th>Status</th></tr></thead>
-        <tbody>${linhas}</tbody></table></div>`;
+        <tbody>${ls}</tbody></table></div>`;
     }).join('');
   }
 
-  const labels=d.porMedico.map((m)=>m.nome_medico), valores=d.porMedico.map((m)=>m.total);
+  // ---- gráfico (direita), filtra junto com a lista ----
+  const pm = medSel ? d.porMedico.filter((m)=>m.nome_medico===medSel) : d.porMedico;
+  const labels=pm.map((m)=>m.nome_medico), valores=pm.map((m)=>m.total);
   if(chart)chart.destroy();
   chart=new Chart(document.getElementById('grafico'),{type:'bar',
     data:{labels,datasets:[{label:'Agendamentos por médico',data:valores,backgroundColor:'#FF710A',borderRadius:6}]},
-    options:{plugins:{legend:{display:false}},scales:{
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{
       x:{ticks:{color:'#496280'},grid:{display:false}},
-      y:{ticks:{color:'#496280'},grid:{color:'#EBEEF3'}}}}});
+      y:{beginAtZero:true,ticks:{color:'#496280',precision:0},grid:{color:'#EBEEF3'}}}}});
 }
 
 function mostrarErro(msg){
@@ -155,6 +192,7 @@ async function atualizar(){
 const hoje=new Date().toISOString().slice(0,10);
 document.getElementById('data').value=hoje;
 document.getElementById('data').addEventListener('change',carregar);
+document.getElementById('medico').addEventListener('change',desenhar);
 document.getElementById('atualizar').addEventListener('click',atualizar);
 carregar();
 </script>

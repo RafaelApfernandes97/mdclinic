@@ -1,8 +1,14 @@
 import { ehBloqueio, normalizarTelefone, extrairNomePaciente } from './agendamentos.js';
 
-export function mapaMedicos(usuarios, campoNome = 'Nome') {
+// GetUsuariosAgenda real devolve { IddoUsuario, Usuario }; GetAgenda usa Id_Usuario
+// nos agendamentos. Aceitamos ambos os formatos (e o campo de nome configurável).
+export function mapaMedicos(usuarios, campoNome = 'Usuario') {
   const m = new Map();
-  for (const u of usuarios) m.set(u.Id_Usuario, u[campoNome] ?? u.Nome ?? 'Desconhecido');
+  for (const u of usuarios) {
+    const id = u.IddoUsuario ?? u.Id_Usuario;
+    const nome = u[campoNome] ?? u.Usuario ?? u.Nome ?? 'Desconhecido';
+    m.set(id, nome);
+  }
   return m;
 }
 
@@ -15,6 +21,10 @@ export function classificarItem(item) {
 
 export function gravarSnapshot({ store, agenda, mapa, dataLote, agora = new Date() }) {
   const capturadoEm = agora.toISOString();
+  // persiste TODOS os médicos do mapa (mesmo sem agenda no dia) p/ o seletor
+  for (const [id, nome] of mapa) {
+    if (id != null) store.upsertMedico({ id_usuario: id, nome });
+  }
   let total = 0, elegiveis = 0;
   for (const item of agenda) {
     const { elegivel, motivo } = classificarItem(item);
