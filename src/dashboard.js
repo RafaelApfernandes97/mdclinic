@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { timingSafeEqual } from 'node:crypto';
 import { snapshotAgenda, mapaMedicos } from './agendaSnapshot.js';
 import { enviarManual } from './envioManual.js';
+import { atualizarAcks } from './ackUpdater.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VIEWS = join(__dirname, '..', 'views');
@@ -61,6 +62,26 @@ export function montarDashboard({ store, config, medx, maischat }) {
     const r = await enviarManual({ maischat, store, config, idAgendamento: id });
     if (!r.ok) return res.status(r.status ?? 500).json({ erro: r.erro });
     res.json(r);
+  });
+
+  router.post('/api/atualizar-ack', exigirSessao, async (req, res) => {
+    const data = req.query.data || new Date().toISOString().slice(0, 10);
+    let ackAtualizados = 0;
+    try {
+      const r = await atualizarAcks({ maischat, store, dataLote: data });
+      ackAtualizados = r.atualizados;
+      if (config.debug) console.log(`[ack] refresh sob demanda data=${data}: ${r.atualizados}/${r.pendentes} atualizados`);
+    } catch (e) {
+      console.error('[ack] falha no refresh sob demanda:', e.message);
+    }
+    res.json({
+      data,
+      resumo: store.resumoAgenda(data),
+      porMedico: store.porMedicoAgenda(data),
+      agenda: store.agendaCompleta(data),
+      medicos: store.listarMedicos(),
+      ackAtualizados,
+    });
   });
 
   router.get('/api/dados', exigirSessao, (req, res) => {

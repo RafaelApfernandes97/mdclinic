@@ -67,6 +67,39 @@ test('POST /api/enviar dispara o envio manual (respeita DRY_RUN)', async () => {
   });
 });
 
+test('POST /api/atualizar-ack consulta o Mais Chat e atualiza os status', async () => {
+  const store = criarStore(':memory:');
+  store.upsertAgendaItem({
+    id_agendamento: 1, data_lote: '2026-06-24', id_usuario: 7, nome_medico: 'Dra. Marina',
+    id_paciente: 9, nome_paciente: 'Joao', telefone: '5534999998888',
+    inicio: '2026-06-24T10:00:00', elegivel: 1, motivo: null, descricao: 'Joao', capturado_em: 'x',
+  });
+  store.registrarEnvio({
+    id_agendamento: 1, id_paciente: 9, nome_paciente: 'Joao', telefone: '5534999998888',
+    id_usuario: 7, nome_medico: 'Dra. Marina', inicio: '2026-06-24T10:00:00', id_mensagem: 'w1',
+    status_envio: 'enviado', ack: 'enviado', data_envio: 'x', data_lote: '2026-06-24', erro: null,
+  });
+  const maischat = { getStatusMensagem: async () => ({ ack: 'lido' }) };
+  const app = criarServidor({ store, config, executarEnvio: async () => ({}), medx: {}, maischat });
+  await comServidor(app, async (port) => {
+    const cookie = await login(port);
+    const res = await fetch(`http://127.0.0.1:${port}/api/atualizar-ack?data=2026-06-24`, { method: 'POST', headers: { cookie } });
+    assert.equal(res.status, 200);
+    const d = await res.json();
+    assert.equal(d.ackAtualizados, 1);
+    assert.equal(d.resumo.lido, 1);
+    assert.equal(d.agenda[0].ack, 'lido');
+  });
+});
+
+test('POST /api/atualizar-ack exige sessão', async () => {
+  const app = criarServidor({ store: criarStore(':memory:'), config, executarEnvio: async () => ({}), medx: {}, maischat: {} });
+  await comServidor(app, async (port) => {
+    const res = await fetch(`http://127.0.0.1:${port}/api/atualizar-ack?data=2026-06-24`, { method: 'POST', redirect: 'manual' });
+    assert.equal(res.status, 302);
+  });
+});
+
 test('POST /api/enviar exige sessão', async () => {
   const app = criarServidor({ store: storeComAgenda(), config, executarEnvio: async () => ({}), medx: {}, maischat: {} });
   await comServidor(app, async (port) => {

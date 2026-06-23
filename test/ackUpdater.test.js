@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { executarPasse } from '../src/ackUpdater.js';
+import { executarPasse, atualizarAcks } from '../src/ackUpdater.js';
 import { criarStore } from '../src/store.js';
 
 const base = {
@@ -8,6 +8,27 @@ const base = {
   inicio: '2026-06-22T10:00:00', status_envio: 'enviado', ack: 'enviado',
   data_envio: '2026-06-21T08:00:00Z', data_lote: '2026-06-22', erro: null,
 };
+
+test('atualizarAcks atualiza não-lidas via getStatusMensagem (sem mexer em lotes)', async () => {
+  const store = criarStore(':memory:');
+  store.registrarEnvio({ ...base, id_agendamento: 1, id_mensagem: 'a' });            // 'enviado'
+  store.registrarEnvio({ ...base, id_agendamento: 2, id_mensagem: 'b', ack: 'lido' }); // já lido
+  const maischat = { getStatusMensagem: async () => ({ ack: 'lido' }) };
+  const r = await atualizarAcks({ maischat, store, dataLote: '2026-06-22' });
+  assert.equal(r.pendentes, 1);
+  assert.equal(r.atualizados, 1);
+  assert.equal(store.mensagensNaoLidas('2026-06-22').length, 0); // item 1 virou 'lido'
+  store.fechar();
+});
+
+test('atualizarAcks não conta quando ack volta null (ainda não aparece na listagem)', async () => {
+  const store = criarStore(':memory:');
+  store.registrarEnvio({ ...base, id_agendamento: 1, id_mensagem: 'a' });
+  const maischat = { getStatusMensagem: async () => ({ ack: null }) };
+  const r = await atualizarAcks({ maischat, store, dataLote: '2026-06-22' });
+  assert.equal(r.atualizados, 0);
+  store.fechar();
+});
 
 test('atualiza só não-lidas e marca passe feito', async () => {
   const store = criarStore(':memory:');

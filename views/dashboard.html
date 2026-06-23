@@ -215,6 +215,18 @@ async function carregar(){
   const r=await fetch('/api/dados?data='+data);
   if(!r.ok){ mostrarErro('Falha ao carregar os dados.'); return; }
   render(await r.json());
+  atualizarAckDoDia(data); // ao acessar o dia, atualiza os ACKs em segundo plano
+}
+
+// consulta o Mais Chat para atualizar enviado->entregue->lido das mensagens do dia
+async function atualizarAckDoDia(data){
+  try{
+    const r=await fetch('/api/atualizar-ack?data='+encodeURIComponent(data),{method:'POST'});
+    if(!r.ok) return;
+    const d=await r.json();
+    // só re-renderiza (preservando filtros) se algum status mudou e ainda é a mesma data
+    if(d.ackAtualizados>0 && document.getElementById('data').value===data) render(d);
+  }catch(e){ /* silencioso: não atrapalha a visualização */ }
 }
 
 async function atualizar(){
