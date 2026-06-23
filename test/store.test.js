@@ -109,6 +109,22 @@ test('agenda_itens: upsert, agendaCompleta e resumoAgenda', () => {
   s.fechar();
 });
 
+test('agendaItem retorna o item (ou null) e agendaCompleta inclui id_agendamento', () => {
+  const s = novaStore();
+  s.upsertAgendaItem({
+    id_agendamento: 5, data_lote: '2026-06-24', id_usuario: 7, nome_medico: 'M',
+    id_paciente: 9, nome_paciente: 'Joao', telefone: '5534999998888',
+    inicio: '2026-06-24T10:00:00', elegivel: 1, motivo: null, descricao: 'Joao', capturado_em: 'x',
+  });
+  const it = s.agendaItem(5);
+  assert.equal(it.id_agendamento, 5);
+  assert.equal(it.elegivel, 1);
+  assert.equal(it.telefone, '5534999998888');
+  assert.equal(s.agendaItem(999), null);
+  assert.equal(s.agendaCompleta('2026-06-24')[0].id_agendamento, 5);
+  s.fechar();
+});
+
 test('medicos: upsert idempotente e listagem ordenada por nome', () => {
   const s = novaStore();
   s.upsertMedico({ id_usuario: 8, nome: 'Dr. Carlos' });

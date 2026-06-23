@@ -160,12 +160,19 @@ export function criarStore(caminho) {
     },
     agendaCompleta(dataLote) {
       return db.prepare(`
-        SELECT a.nome_medico, a.inicio, a.nome_paciente, a.telefone, a.elegivel, a.motivo,
+        SELECT a.id_agendamento, a.nome_medico, a.inicio, a.nome_paciente, a.telefone,
+               a.elegivel, a.motivo,
                e.status_envio, e.ack, e.data_envio, e.ack_atualizado_em
         FROM agenda_itens a
         LEFT JOIN envios e ON e.id_agendamento = a.id_agendamento
         WHERE a.data_lote = ?
         ORDER BY a.nome_medico, a.inicio`).all(dataLote);
+    },
+    agendaItem(id) {
+      return db.prepare(`
+        SELECT id_agendamento, data_lote, id_usuario, nome_medico, id_paciente,
+               nome_paciente, telefone, inicio, elegivel, motivo
+        FROM agenda_itens WHERE id_agendamento = ?`).get(id) ?? null;
     },
     resumoAgenda(dataLote) {
       const r = db.prepare(`

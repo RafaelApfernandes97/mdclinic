@@ -6,7 +6,7 @@ import { montarDashboard } from './dashboard.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PUBLIC = join(__dirname, '..', 'public');
 
-export function criarServidor({ store, config, executarEnvio, medx }) {
+export function criarServidor({ store, config, executarEnvio, medx, maischat }) {
   const app = express();
   app.set('trust proxy', 1); // EasyPanel termina TLS num proxy reverso
 
@@ -23,6 +23,6 @@ export function criarServidor({ store, config, executarEnvio, medx }) {
   });
 
   app.use(express.static(PUBLIC));
-  app.use('/', montarDashboard({ store, config, medx }));
+  app.use('/', montarDashboard({ store, config, medx, maischat }));
   return app;
 }

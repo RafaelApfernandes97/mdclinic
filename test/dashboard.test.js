@@ -54,6 +54,27 @@ test('/api/dados inclui a lista de médicos (para o seletor)', async () => {
   });
 });
 
+test('POST /api/enviar dispara o envio manual (respeita DRY_RUN)', async () => {
+  const cfgEnvio = { ...config, templateVariaveis: ['nome', 'medico', 'data', 'hora'], dryRun: true };
+  const maischat = { sendTemplate: async () => ({ idMensagem: 'x' }) };
+  const app = criarServidor({ store: storeComAgenda(), config: cfgEnvio, executarEnvio: async () => ({}), medx: {}, maischat });
+  await comServidor(app, async (port) => {
+    const cookie = await login(port);
+    const res = await fetch(`http://127.0.0.1:${port}/api/enviar?id=1`, { method: 'POST', headers: { cookie } });
+    assert.equal(res.status, 200);
+    const d = await res.json();
+    assert.equal(d.dryRun, true);
+  });
+});
+
+test('POST /api/enviar exige sessão', async () => {
+  const app = criarServidor({ store: storeComAgenda(), config, executarEnvio: async () => ({}), medx: {}, maischat: {} });
+  await comServidor(app, async (port) => {
+    const res = await fetch(`http://127.0.0.1:${port}/api/enviar?id=1`, { method: 'POST', redirect: 'manual' });
+    assert.equal(res.status, 302);
+  });
+});
+
 test('/api/medicos busca a lista ao vivo do MedX (formato IddoUsuario/Usuario)', async () => {
   const medx = {
     getUsuarios: async () => ([

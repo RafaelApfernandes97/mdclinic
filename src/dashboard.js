@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { timingSafeEqual } from 'node:crypto';
 import { snapshotAgenda, mapaMedicos } from './agendaSnapshot.js';
+import { enviarManual } from './envioManual.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VIEWS = join(__dirname, '..', 'views');
@@ -20,7 +21,7 @@ function exigirSessao(req, res, next) {
   return res.redirect('/login');
 }
 
-export function montarDashboard({ store, config, medx }) {
+export function montarDashboard({ store, config, medx, maischat }) {
   const router = express.Router();
   router.use(express.urlencoded({ extended: false }));
   router.use(cookieSession({
@@ -52,6 +53,14 @@ export function montarDashboard({ store, config, medx }) {
       console.error('[dashboard] falha ao buscar médicos do MedX, usando cache:', e.message);
     }
     res.json({ medicos: store.listarMedicos() });
+  });
+
+  router.post('/api/enviar', exigirSessao, async (req, res) => {
+    const id = Number(req.query.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ erro: 'id inválido' });
+    const r = await enviarManual({ maischat, store, config, idAgendamento: id });
+    if (!r.ok) return res.status(r.status ?? 500).json({ erro: r.erro });
+    res.json(r);
   });
 
   router.get('/api/dados', exigirSessao, (req, res) => {

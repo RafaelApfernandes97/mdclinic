@@ -68,6 +68,11 @@
   .chip-warn{background:var(--yellow-100);color:#8a6d00}
   .chip-gray{background:var(--gray-100);color:var(--gray-600)}
   .vazio{color:var(--gray-600);text-align:center;padding:2rem}
+  td.acao,th.acao{width:44px;text-align:center;padding-left:.25rem}
+  .enviar{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;
+    border:0;border-radius:8px;background:transparent;color:var(--green-500);cursor:pointer;transition:background .12s}
+  .enviar:hover{background:var(--green-50)}
+  .enviar:disabled{opacity:.5;cursor:default}
 </style></head><body>
 <header>
   <div class="brand">
@@ -106,6 +111,8 @@ const CARDS=[
 ];
 const predicado=(k)=>(CARDS.find((c)=>c[0]===k)||CARDS[0])[2];
 const rotulo=(k)=>(CARDS.find((c)=>c[0]===k)||[])[1]||'';
+// ícone "aviãozinho" de envio (estilo WhatsApp)
+const ICON_AVIAO='<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>';
 
 function statusInfo(r){
   if(r.elegivel===0){
@@ -171,13 +178,17 @@ function desenhar(){
     cont.innerHTML=nomes.map((med)=>{
       const ls=grupos[med].map((r)=>{
         const [txt,cls]=statusInfo(r);
+        const botao = r.elegivel===1
+          ? `<button class="enviar" title="Envio manual" aria-label="Envio manual" data-id="${r.id_agendamento}" data-nome="${esc(r.nome_paciente)}">${ICON_AVIAO}</button>`
+          : '';
         return `<tr class="${r.elegivel===0?'inelegivel':''}">
+          <td class="acao">${botao}</td>
           <td>${esc(hora(r.inicio))}</td><td>${esc(r.nome_paciente)}</td>
           <td>${esc(r.telefone)}</td><td><span class="chip ${cls}">${esc(txt)}</span></td></tr>`;
       }).join('');
       return `<div class="box"><div class="medico-hd"><h2>${esc(med)}</h2>
         <span class="badge">${grupos[med].length} agendamento(s)</span></div>
-        <table><thead><tr><th>Hora</th><th>Paciente</th><th>Telefone</th><th>Status</th></tr></thead>
+        <table><thead><tr><th class="acao"></th><th>Hora</th><th>Paciente</th><th>Telefone</th><th>Status</th></tr></thead>
         <tbody>${ls}</tbody></table></div>`;
     }).join('');
   }
@@ -229,6 +240,19 @@ document.getElementById('cards').addEventListener('click',(e)=>{
   desenhar();
 });
 document.getElementById('atualizar').addEventListener('click',atualizar);
+document.getElementById('agendas').addEventListener('click',async (e)=>{
+  const b=e.target.closest('.enviar'); if(!b) return;
+  const id=b.dataset.id, nome=b.dataset.nome||'';
+  if(!confirm('Enviar confirmação para '+nome+'?')) return;
+  b.disabled=true;
+  try{
+    const r=await fetch('/api/enviar?id='+encodeURIComponent(id),{method:'POST'});
+    if(r.status!==200){ mostrarErro('Não foi possível enviar a mensagem.'); return; }
+    const d=await r.json();
+    if(d.dryRun){ mostrarErro('DRY_RUN ativo: envio simulado (nada foi enviado).'); return; }
+    carregar(); // recarrega para refletir o novo status
+  } finally { b.disabled=false; }
+});
 carregarMedicos();
 carregar();
 </script>
