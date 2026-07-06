@@ -19,8 +19,8 @@ test('mapaMedicos: aceita formato real do MedX (IddoUsuario/Usuario)', () => {
     { IddoUsuario: -1212054111, Usuario: 'dramarinadedeus' },
     { IddoUsuario: 578834368, Usuario: 'draliviaaraujo' },
   ], 'Usuario');
-  assert.equal(m.get(-1212054111), 'dramarinadedeus');
-  assert.equal(m.get(578834368), 'draliviaaraujo');
+  assert.equal(m.get(-1212054111), 'Dra Marina de Deus');
+  assert.equal(m.get(578834368), 'Dra Livia Araujo');
 });
 
 test('gravarSnapshot persiste todos os médicos do mapa (mesmo sem agenda)', () => {
@@ -30,8 +30,8 @@ test('gravarSnapshot persiste todos os médicos do mapa (mesmo sem agenda)', () 
     { IddoUsuario: 8, Usuario: 'drcarlos' },
   ], 'Usuario');
   gravarSnapshot({ store, agenda: [], mapa, dataLote: '2026-06-24', agora: new Date('2026-06-23T08:00:00Z') });
-  // listarMedicos já vem ordenado por nome (ASCII: 'dramarina' < 'drcarlos')
-  assert.deepEqual(store.listarMedicos().map((m) => m.nome), ['dramarina', 'drcarlos']);
+  // listarMedicos já vem ordenado por nome ('Dr Carlos' < 'Dra Marina')
+  assert.deepEqual(store.listarMedicos().map((m) => m.nome), ['Dr Carlos', 'Dra Marina']);
   store.fechar();
 });
 
@@ -59,6 +59,6 @@ test('snapshotAgenda busca MedX ao vivo e grava', async () => {
   };
   const r = await snapshotAgenda({ medx, store, config: { medicoCampoNome: 'Nome' }, dataLote: '2026-06-24' });
   assert.equal(r.total, 1);
-  assert.equal(store.agendaCompleta('2026-06-24')[0].nome_medico, 'Dra. Marina');
+  assert.equal(store.agendaCompleta('2026-06-24')[0].nome_medico, 'Dra Marina');
   store.fechar();
 });

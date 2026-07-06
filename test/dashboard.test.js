@@ -121,7 +121,7 @@ test('/api/medicos busca a lista ao vivo do MedX (formato IddoUsuario/Usuario)',
     const res = await fetch(`http://127.0.0.1:${port}/api/medicos`, { headers: { cookie } });
     assert.equal(res.status, 200);
     const d = await res.json();
-    assert.deepEqual(d.medicos.map((m) => m.nome), ['draliviaaraujo', 'dramarinadedeus']);
+    assert.deepEqual(d.medicos.map((m) => m.nome), ['Dra Livia Araujo', 'Dra Marina de Deus']);
   });
 });
 

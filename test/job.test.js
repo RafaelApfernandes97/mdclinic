@@ -32,7 +32,7 @@ test('envia só elegíveis e registra', async () => {
   const r = await executarJobEnvio({ ...d, agora: new Date('2026-06-21T11:00:00Z') });
   assert.equal(r.enviados, 1);
   assert.equal(d.enviados.length, 1);
-  assert.deepEqual(d.enviados[0].variaveis, ['JOAO', 'Dra. Marina', '22/06/2026', '10:00']);
+  assert.deepEqual(d.enviados[0].variaveis, ['JOAO', 'Dra Marina', '22/06/2026', '10:00']);
   assert.equal(d.store.jaEnviado(1), true);
 });
 

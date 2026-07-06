@@ -1,4 +1,5 @@
 import { ehBloqueio, normalizarTelefone, extrairNomePaciente } from './agendamentos.js';
+import { normalizarNomeMedico } from './nomes.js';
 
 // GetUsuariosAgenda real devolve { IddoUsuario, Usuario }; GetAgenda usa Id_Usuario
 // nos agendamentos. Aceitamos ambos os formatos (e o campo de nome configurável).
@@ -7,7 +8,7 @@ export function mapaMedicos(usuarios, campoNome = 'Usuario') {
   for (const u of usuarios) {
     const id = u.IddoUsuario ?? u.Id_Usuario;
     const nome = u[campoNome] ?? u.Usuario ?? u.Nome ?? 'Desconhecido';
-    m.set(id, nome);
+    m.set(id, normalizarNomeMedico(nome));
   }
   return m;
 }
