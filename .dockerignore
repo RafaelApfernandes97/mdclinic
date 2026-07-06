@@ -1,6 +1,12 @@
-node_modules
 .git
 .env
+.env.example
+node_modules
 data
 docs
 test
+marca
+apimdx.txt
+README.md
+Dockerfile
+.dockerignore
