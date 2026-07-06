@@ -1,14 +1,7 @@
 import { amanhaISO, agoraISO } from './datas.js';
 import { ehElegivel, montarEnvio } from './agendamentos.js';
 import { mapaMedicos, gravarSnapshot } from './agendaSnapshot.js';
-
-function montarVariaveis(envio, ordem) {
-  const valores = {
-    nome: envio.nome_paciente, medico: envio.nome_medico,
-    data: envio.data_br, hora: envio.hora_br,
-  };
-  return ordem.map((chave) => valores[chave] ?? '');
-}
+import { resolverTemplate, montarVariaveisTemplate } from './templates.js';
 
 export async function executarJobEnvio({ medx, maischat, store, config, agora = new Date() }) {
   const dataLote = amanhaISO(agora);
@@ -32,10 +25,16 @@ export async function executarJobEnvio({ medx, maischat, store, config, agora = 
     if (store.jaEnviado(item.Id_Agendamento)) { pulados++; continue; }
     if (config.dryRun) { simulados++; continue; }
     const envio = montarEnvio(item, mapa);
-    const variaveis = montarVariaveis(envio, config.templateVariaveis);
+    const { templateNome, ordem } = resolverTemplate(envio.nome_medico, config);
+    const variaveis = montarVariaveisTemplate({
+      nomePaciente: envio.nome_paciente, nomeMedico: envio.nome_medico,
+      inicio: envio.inicio, ordem, agora,
+    });
     const ts = agoraISO();
     try {
-      const { idMensagem } = await maischat.sendTemplate({ telefone: envio.telefone, variaveis });
+      const { idMensagem } = await maischat.sendTemplate({
+        telefone: envio.telefone, variaveis, template: templateNome,
+      });
       store.registrarEnvio({
         id_agendamento: envio.id_agendamento,
         id_paciente: envio.id_paciente,

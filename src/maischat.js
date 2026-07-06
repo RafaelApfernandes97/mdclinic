@@ -28,7 +28,9 @@ export function criarMaisChat({
   // log de debug (DEBUG=true) — nunca inclui token/credenciais
   const dbg = (...args) => { if (debug) console.log('[maischat]', ...args); };
 
-  async function sendTemplate({ telefone, variaveis }) {
+  // `template` (opcional) sobrepõe o nome padrão — usado pelos templates por agenda.
+  async function sendTemplate({ telefone, variaveis, template }) {
+    const nome = template ?? templateNome;
     const url = `${baseUrl}/template/send/${broker}`;
     const body = JSON.stringify({
       type: 'apiTemplate',
@@ -38,12 +40,12 @@ export function criarMaisChat({
       destination: telefone,
       token: metaToken,
       template: {
-        name: templateNome,
+        name: nome,
         language: templateIdioma,
         components: montarComponents(variaveis),
       },
     });
-    dbg(`sendTemplate -> destino=${telefone} template=${templateNome} vars=${variaveis?.length ?? 0}`);
+    dbg(`sendTemplate -> destino=${telefone} template=${nome} vars=${variaveis?.length ?? 0}`);
     const r = await fetch(url, { method: 'POST', headers, body });
     if (!r.ok) throw new Error(`Falha sendTemplate: ${r.status} ${await r.text()}`);
     const data = await r.json();

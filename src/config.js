@@ -33,5 +33,10 @@ export function carregarConfig(env = process.env) {
     sqlitePath: env.SQLITE_PATH ?? './data/envios.db',
     dryRun: env.DRY_RUN === 'true',
     debug: env.DEBUG === 'true',
+    // Cookie de sessão só via HTTPS. Default: ligado em produção.
+    // COOKIE_SECURE=false permite testar o build de produção em http:// (ex.: localhost).
+    cookieSegura: env.COOKIE_SECURE != null
+      ? env.COOKIE_SECURE === 'true'
+      : env.NODE_ENV === 'production',
   };
 }

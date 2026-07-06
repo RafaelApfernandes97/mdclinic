@@ -13,7 +13,10 @@ function storeComItem(extra = {}) {
   });
   return s;
 }
-const cfg = (over = {}) => ({ templateVariaveis: ['nome', 'medico', 'data', 'hora'], dryRun: false, ...over });
+const cfg = (over = {}) => ({
+  templateNome: 'confirmacao_agendamento',
+  templateVariaveis: ['nome', 'medico', 'data', 'hora'], dryRun: false, ...over,
+});
 
 test('enviarManual envia e registra (DRY_RUN=false)', async () => {
   const store = storeComItem();
@@ -23,8 +26,30 @@ test('enviarManual envia e registra (DRY_RUN=false)', async () => {
   assert.equal(r.ok, true);
   assert.equal(r.enviado, true);
   assert.equal(enviados.length, 1);
-  assert.deepEqual(enviados[0].variaveis, ['Joao', 'Dra. Marina', '24/06/2026', '10:00']);
+  assert.deepEqual(enviados[0].variaveis, ['Joao', 'Marina', '24/06/2026', '10:00']);
   assert.equal(store.jaEnviado(1), true);
+});
+
+test('enviarManual suporta variáveis dia e hora_curta (template MD Infusion)', async () => {
+  const store = storeComItem({ inicio: '2026-06-24T14:30:00' });
+  const enviados = [];
+  const maischat = { sendTemplate: async (p) => { enviados.push(p); return { idMensagem: 'w2' }; } };
+  const config = cfg({ templateVariaveis: ['nome', 'dia', 'hora_curta'] });
+  const r = await enviarManual({ maischat, store, config, idAgendamento: 1, agora: new Date('2026-06-23T09:00:00Z') });
+  assert.equal(r.ok, true);
+  // 2026-06-24 é quarta-feira; 14:30 mantém os minutos
+  assert.deepEqual(enviados[0].variaveis, ['Joao', 'Quarta-feira 24/06', '14:30']);
+});
+
+test('enviarManual usa o template próprio da agenda quando houver', async () => {
+  const store = storeComItem({ nome_medico: 'Dra Livia Araujo', inicio: '2026-06-24T08:00:00' });
+  const enviados = [];
+  const maischat = { sendTemplate: async (p) => { enviados.push(p); return { idMensagem: 'w3' }; } };
+  // 06:00 BRT => "Bom dia"
+  const r = await enviarManual({ maischat, store, config: cfg(), idAgendamento: 1, agora: new Date('2026-06-23T09:00:00Z') });
+  assert.equal(r.ok, true);
+  assert.equal(enviados[0].template, 'confirmar_dralivia');
+  assert.deepEqual(enviados[0].variaveis, ['Bom dia', '24/06', '08:00']);
 });
 
 test('enviarManual com DRY_RUN=true só simula (não envia, não registra)', async () => {

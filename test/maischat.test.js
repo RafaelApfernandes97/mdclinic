@@ -52,6 +52,13 @@ test('sendTemplate posta no contrato Mais Chat e retorna o wamid (resposta embru
   assert.deepEqual(corpo.template.components[0].parameters.map((p) => p.text), ['Joao', 'Dra', '30/06', '18:20']);
 });
 
+test('sendTemplate aceita template por envio (override do padrão)', async () => {
+  let corpo;
+  const fetch = async (u, opts) => { corpo = JSON.parse(opts.body); return ok({ status: true, data: { messages: [{ id: 'wamid.OVR' }] } }); };
+  await mc(fetch).sendTemplate({ telefone: '55', variaveis: ['a'], template: 'confirmar_dralivia' });
+  assert.equal(corpo.template.name, 'confirmar_dralivia');
+});
+
 test('sendTemplate lança quando a Meta retorna falha', async () => {
   const fetch = async () => ok({ status: false, message: 'Falha ao enviar mensagem!', error: { error: { code: 131009 } } });
   await assert.rejects(() => mc(fetch).sendTemplate({ telefone: '55', variaveis: [] }), /Falha ao enviar/);

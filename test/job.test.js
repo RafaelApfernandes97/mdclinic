@@ -20,6 +20,7 @@ function deps(overrides = {}) {
   };
   const store = criarStore(':memory:');
   const config = {
+    templateNome: 'confirmacao_agendamento',
     templateVariaveis: ['nome', 'medico', 'data', 'hora'],
     ackPasse1Min: 5, ackPasse2Min: 60,
     medicoCampoNome: 'Nome',
@@ -32,8 +33,26 @@ test('envia só elegíveis e registra', async () => {
   const r = await executarJobEnvio({ ...d, agora: new Date('2026-06-21T11:00:00Z') });
   assert.equal(r.enviados, 1);
   assert.equal(d.enviados.length, 1);
-  assert.deepEqual(d.enviados[0].variaveis, ['JOAO', 'Dra Marina', '22/06/2026', '10:00']);
+  assert.deepEqual(d.enviados[0].variaveis, ['JOAO', 'Marina', '22/06/2026', '10:00']);
   assert.equal(d.store.jaEnviado(1), true);
+});
+
+test('suporta variáveis dia e hora_curta (template MD Infusion)', async () => {
+  const d = deps();
+  d.config.templateVariaveis = ['nome', 'dia', 'hora_curta'];
+  await executarJobEnvio({ ...d, agora: new Date('2026-06-21T11:00:00Z') });
+  // 2026-06-22 é segunda-feira; 10:00 => "10"
+  assert.deepEqual(d.enviados[0].variaveis, ['JOAO', 'Segunda-feira 22/06', '10']);
+  assert.equal(d.enviados[0].template, 'confirmacao_agendamento'); // fallback = template do .env
+});
+
+test('agenda com template próprio usa o template e as variáveis do médico', async () => {
+  const d = deps();
+  d.medx.getUsuarios = async () => [{ Id_Usuario: 7, Nome: 'dramarinadedeus' }];
+  // 08:00 BRT => "Bom dia"
+  await executarJobEnvio({ ...d, agora: new Date('2026-06-21T11:00:00Z') });
+  assert.equal(d.enviados[0].template, 'confirmar_dramarina');
+  assert.deepEqual(d.enviados[0].variaveis, ['Bom dia', 'JOAO', '22/06', '10h']);
 });
 
 test('não reenvia já enviado', async () => {

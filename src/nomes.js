@@ -21,6 +21,12 @@ function montarNome(palavras) {
     .join(' ');
 }
 
+// Nome sem o título Dr/Dra — para a variável do template, cujo texto
+// aprovado na Meta já contém "Dr(a)." antes do placeholder.
+export function nomeSemTitulo(nome) {
+  return String(nome ?? '').replace(/^dra?\.?\s+/i, '').trim();
+}
+
 export function normalizarNomeMedico(usuario) {
   const login = String(usuario ?? '').trim();
   if (!login) return 'Desconhecido';

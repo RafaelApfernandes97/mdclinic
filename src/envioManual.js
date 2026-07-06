@@ -1,4 +1,5 @@
-import { formatarDataBR, formatarHoraBR, agoraISO } from './datas.js';
+import { agoraISO } from './datas.js';
+import { resolverTemplate, montarVariaveisTemplate } from './templates.js';
 
 // Envia manualmente a confirmação de UM agendamento (acionado pelo botão no dashboard).
 // Respeita DRY_RUN: com dryRun=true apenas simula (não chama o Mais Chat, não registra).
@@ -14,11 +15,11 @@ export async function enviarManual({ maischat, store, config, idAgendamento, ago
     return { ok: false, status: 400, erro: 'Agendamento não elegível para envio' };
   }
 
-  const valores = {
-    nome: item.nome_paciente, medico: item.nome_medico,
-    data: formatarDataBR(item.inicio), hora: formatarHoraBR(item.inicio),
-  };
-  const variaveis = config.templateVariaveis.map((chave) => valores[chave] ?? '');
+  const { templateNome, ordem } = resolverTemplate(item.nome_medico, config);
+  const variaveis = montarVariaveisTemplate({
+    nomePaciente: item.nome_paciente, nomeMedico: item.nome_medico,
+    inicio: item.inicio, ordem, agora,
+  });
 
   if (config.dryRun) {
     console.log(`[envio-manual] DRY_RUN: simulado (não enviado) — agendamento=${idAgendamento} paciente="${item.nome_paciente}" telefone=${item.telefone}`);
@@ -33,7 +34,9 @@ export async function enviarManual({ maischat, store, config, idAgendamento, ago
     data_envio: ts, data_lote: item.data_lote,
   };
   try {
-    const { idMensagem } = await maischat.sendTemplate({ telefone: item.telefone, variaveis });
+    const { idMensagem } = await maischat.sendTemplate({
+      telefone: item.telefone, variaveis, template: templateNome,
+    });
     store.registrarEnvio({ ...base, id_mensagem: idMensagem, status_envio: 'enviado', ack: 'enviado', erro: null });
     console.log(`[envio-manual] ENVIADO: agendamento=${idAgendamento} paciente="${item.nome_paciente}" telefone=${item.telefone} wamid=${idMensagem}`);
     return { ok: true, enviado: true, ack: 'enviado' };

@@ -26,3 +26,15 @@ test('normalizarNomeMedico: entradas vazias ou sem padrão', () => {
   assert.equal(normalizarNomeMedico(null), 'Desconhecido');
   assert.equal(normalizarNomeMedico('recepcao'), 'Recepcao');
 });
+
+test('nomeSemTitulo: remove Dr/Dra do início (só p/ variável do template)', async () => {
+  const { nomeSemTitulo } = await import('../src/nomes.js');
+  assert.equal(nomeSemTitulo('Dra Livia Araujo'), 'Livia Araujo');
+  assert.equal(nomeSemTitulo('Dra Marina de Deus'), 'Marina de Deus');
+  assert.equal(nomeSemTitulo('Dr Vitor Ganem'), 'Vitor Ganem');
+  assert.equal(nomeSemTitulo('Dra. Marina'), 'Marina');
+  // não mexe em nomes sem título nem em "Dr" no meio
+  assert.equal(nomeSemTitulo('Marina de Deus'), 'Marina de Deus');
+  assert.equal(nomeSemTitulo('Adriana Drumond'), 'Adriana Drumond');
+  assert.equal(nomeSemTitulo(null), '');
+});

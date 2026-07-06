@@ -27,7 +27,7 @@ export function montarDashboard({ store, config, medx, maischat }) {
   router.use(express.urlencoded({ extended: false }));
   router.use(cookieSession({
     name: 'sess', secret: config.sessionSecret, maxAge: 8 * 3600 * 1000, httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: config.cookieSegura ?? false,
     sameSite: 'lax',
   }));
 
