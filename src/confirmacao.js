@@ -5,7 +5,7 @@
 // A janela cobre o envio D+1 (inclusive sexta -> segunda, pulando o fim de semana)
 // e o envio antecipado de 15 dias (JANELA_CONFIRMACAO_DIAS).
 
-import { normalizarTelefone } from './agendamentos.js';
+import { normalizarTelefone, chaveTelefone, ehDesmarcado } from './agendamentos.js';
 import { hojeISO, somaDiasISO, agoraLocalISO } from './datas.js';
 
 // Índice CONFIRMADO na tabela do MedX (GetStatusNomeAgenda).
@@ -36,11 +36,15 @@ async function aplicarConfirmacao(medx, item) {
 
 // Dentre os agendamentos, escolhe o do telefone informado mais próximo no tempo
 // (menor Inicio que ainda não passou em relação a `agoraLocal`). Retorna o item ou null.
+// Compara por chaveTelefone (tolerante ao 9º dígito: o wa_id do WhatsApp pode vir sem
+// o 9 enquanto o MedX guarda com o 9). Ignora agendamentos DESMARCADOS — confirmar um
+// desmarcado o ressuscitaria como CONFIRMADO no MedX.
 export function selecionarMaisProximo(agenda, telefone, agoraLocal) {
-  const alvo = normalizarTelefone(telefone);
+  const alvo = chaveTelefone(telefone);
   if (!alvo) return null;
   const candidatos = (Array.isArray(agenda) ? agenda : [])
-    .filter((x) => normalizarTelefone(x.SMS) === alvo)
+    .filter((x) => chaveTelefone(x.SMS) === alvo)
+    .filter((x) => !ehDesmarcado(x))
     .filter((x) => String(x.Inicio ?? '') >= agoraLocal)
     .sort((a, b) => String(a.Inicio).localeCompare(String(b.Inicio)));
   return candidatos[0] ?? null;

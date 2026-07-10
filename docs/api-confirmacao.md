@@ -17,12 +17,15 @@ Content-Type: application/json
 ## Como o agendamento é localizado
 
 1. Normaliza o telefone recebido (aceita `11911761633`, `(11) 91176-1633`,
-   `5511911761633` — todos viram `5511911761633`).
+   `5511911761633` — todos viram `5511911761633`). A comparação **tolera o 9º dígito**:
+   o `wa_id` do WhatsApp pode vir sem o 9 (`553488353700`) e ainda casa com o número
+   guardado no MedX com o 9 (`34988353700`).
 2. Busca a agenda na janela **hoje até hoje+15 dias** (fuso de Brasília; configurável
    via `JANELA_CONFIRMACAO_DIAS`). A janela cobre o envio de véspera — inclusive
    **sexta → segunda**, quando o envio pula o fim de semana — e o **envio antecipado
    de 15 dias**.
-3. Filtra os agendamentos daquele telefone que **ainda não passaram**.
+3. Filtra os agendamentos daquele telefone que **ainda não passaram**, ignorando os
+   **DESMARCADOS** (confirmar um desmarcado o ressuscitaria no MedX).
 4. Confirma o **mais próximo no tempo** (menor horário de início futuro).
 
 ## Corpo da requisição

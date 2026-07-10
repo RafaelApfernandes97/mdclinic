@@ -46,6 +46,28 @@ test('selecionarMaisProximo: pega o menor Inicio ainda não passado do telefone'
   assert.equal(item.Id_Agendamento, 2);
 });
 
+test('selecionarMaisProximo: casa telefone sem o 9º dígito (wa_id do WhatsApp)', () => {
+  // Bot manda 553488353700 (sem o 9); MedX guarda 34988353700 (com o 9).
+  const agenda = [{ Id_Agendamento: 30, Status: 1, SMS: '34988353700', Inicio: '2026-07-13T18:30:00' }];
+  const item = selecionarMaisProximo(agenda, '553488353700', '2026-07-09T09:00:00');
+  assert.equal(item.Id_Agendamento, 30);
+  // sentido inverso: bot manda com 9, MedX guarda sem 9
+  const agenda2 = [{ Id_Agendamento: 31, Status: 1, SMS: '3488353700', Inicio: '2026-07-13T18:30:00' }];
+  const item2 = selecionarMaisProximo(agenda2, '5534988353700', '2026-07-09T09:00:00');
+  assert.equal(item2.Id_Agendamento, 31);
+});
+
+test('selecionarMaisProximo: ignora agendamento DESMARCADO (Status 0)', () => {
+  const agenda = [
+    { Id_Agendamento: 40, Status: 0, SMS: '11911761633', Inicio: '2026-07-09T18:00:00' }, // desmarcado
+    { Id_Agendamento: 41, Status: 1, SMS: '11911761633', Inicio: '2026-07-10T09:00:00' },
+  ];
+  const item = selecionarMaisProximo(agenda, '11911761633', '2026-07-09T09:00:00');
+  assert.equal(item.Id_Agendamento, 41);
+  // só o desmarcado -> null (404)
+  assert.equal(selecionarMaisProximo([agenda[0]], '11911761633', '2026-07-09T09:00:00'), null);
+});
+
 test('selecionarMaisProximo: null quando telefone inválido ou sem match', () => {
   assert.equal(selecionarMaisProximo([], '', '2026-07-09T09:00:00'), null);
   assert.equal(selecionarMaisProximo([{ SMS: '34999990000', Inicio: '2026-07-09T18:00:00' }],

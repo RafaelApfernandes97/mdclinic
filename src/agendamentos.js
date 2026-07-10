@@ -14,6 +14,16 @@ export function normalizarTelefone(sms) {
   return num;
 }
 
+// Chave de comparação tolerante ao 9º dígito: 55 + DDD + últimos 8 dígitos.
+// O wa_id do WhatsApp pode vir sem o 9 (553488353700) enquanto o MedX guarda com
+// o 9 (5534988353700) — os dois viram a mesma chave (553488353700). Use apenas para
+// COMPARAR números; para exibir/enviar, use normalizarTelefone.
+export function chaveTelefone(sms) {
+  const num = normalizarTelefone(sms);
+  if (!num) return null;
+  return num.slice(0, 4) + num.slice(-8);
+}
+
 const PALAVRAS_BLOQUEIO = ['FECHADA', 'BLOQUEADO', 'SEQUENCIAL'];
 
 export function ehBloqueio(descricao = '') {

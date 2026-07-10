@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  extrairNomePaciente, normalizarTelefone, ehBloqueio, ehDesmarcado, ehElegivel, montarEnvio,
+  extrairNomePaciente, normalizarTelefone, chaveTelefone, ehBloqueio, ehDesmarcado, ehElegivel, montarEnvio,
 } from '../src/agendamentos.js';
 
 test('extrairNomePaciente pega o trecho antes da primeira vírgula', () => {
@@ -15,6 +15,16 @@ test('normalizarTelefone formata número BR', () => {
   assert.equal(normalizarTelefone('5534999998888'), '5534999998888');
   assert.equal(normalizarTelefone(''), null);
   assert.equal(normalizarTelefone('123'), null);
+});
+
+test('chaveTelefone iguala números com e sem o 9º dígito', () => {
+  // celular com 9 e wa_id sem 9 viram a mesma chave
+  assert.equal(chaveTelefone('5534988353700'), '553488353700');
+  assert.equal(chaveTelefone('553488353700'), '553488353700');
+  assert.equal(chaveTelefone('34988353700'), '553488353700');
+  assert.equal(chaveTelefone('(34) 98835-3700'), '553488353700');
+  assert.equal(chaveTelefone(''), null);
+  assert.equal(chaveTelefone('123'), null);
 });
 
 test('ehBloqueio detecta palavras-chave (case-insensitive)', () => {
