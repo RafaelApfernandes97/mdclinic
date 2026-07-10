@@ -30,11 +30,15 @@ export function criarServidor({ store, config, executarEnvio, medx, maischat }) 
     const corpo = req.body ?? {};
     const telefone = typeof corpo.telefone === 'string' ? corpo.telefone.trim() : '';
     if (!telefone) {
+      console.warn('[confirmacao] falha 400: telefone obrigatório (corpo sem telefone)');
       return res.status(400).json({ success: false, erro: 'telefone obrigatório' });
     }
     try {
       const r = await confirmarPorTelefone({ medx, telefone });
-      if (!r.success) return res.status(r.status ?? 500).json({ success: false, erro: r.erro });
+      if (!r.success) {
+        console.warn(`[confirmacao] falha ${r.status ?? 500}: ${r.erro} — telefone=${telefone}`);
+        return res.status(r.status ?? 500).json({ success: false, erro: r.erro });
+      }
       console.log(`[confirmacao] telefone=${r.telefone} agendamento=${r.idAgendamento} -> CONFIRMADO${r.jaConfirmado ? ' (idempotente)' : ''}`);
       return res.json(r);
     } catch (e) {
