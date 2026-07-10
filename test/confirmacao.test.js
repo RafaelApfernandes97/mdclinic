@@ -52,7 +52,7 @@ test('selecionarMaisProximo: null quando telefone inválido ou sem match', () =>
     '11911761633', '2026-07-09T09:00:00'), null);
 });
 
-test('confirmarPorTelefone aplica CONFIRMADO com tipo resolvido, busca hoje..amanhã', async () => {
+test('confirmarPorTelefone aplica CONFIRMADO com tipo resolvido, busca hoje..hoje+15', async () => {
   let chamada = null;
   const agenda = [
     { Id_Agendamento: -19659252, Status: 1, SMS: '11911761633', TipoAgendamento: 'Consulta', Inicio: '2026-07-09T18:00:00' },
@@ -66,8 +66,43 @@ test('confirmarPorTelefone aplica CONFIRMADO com tipo resolvido, busca hoje..ama
   assert.equal(chamada.status, STATUS_CONFIRMADO);
   assert.equal(chamada.opts.confirmar, true);
   assert.equal(chamada.opts.idTipoConsulta, -2);
-  // janela: hoje e amanhã
-  assert.deepEqual(medx._chamadas[0], { inicio: '2026-07-09', fim: '2026-07-10' });
+  // janela: hoje até hoje+15 (JANELA_CONFIRMACAO_DIAS default)
+  assert.deepEqual(medx._chamadas[0], { inicio: '2026-07-09', fim: '2026-07-24' });
+});
+
+test('confirmarPorTelefone respeita janelaDias customizada', async () => {
+  const agenda = [{ Id_Agendamento: 5, Status: 1, SMS: '11911761633', TipoAgendamento: 'Consulta', Inicio: '2026-07-11T09:00:00' }];
+  const medx = medxFake({ agenda });
+  const r = await confirmarPorTelefone({ medx, telefone: '11911761633', agora: AGORA, janelaDias: 3 });
+  assert.equal(r.success, true);
+  assert.deepEqual(medx._chamadas[0], { inicio: '2026-07-09', fim: '2026-07-12' });
+});
+
+test('confirmarPorTelefone: sexta confirma agendamento de segunda (próximo dia útil)', async () => {
+  // 2026-07-10 é sexta; envio D+1 útil mira segunda 2026-07-13.
+  const sexta = new Date('2026-07-10T12:00:00Z');
+  const agenda = [{ Id_Agendamento: 9, Status: 1, SMS: '11911761633', TipoAgendamento: 'Consulta', Inicio: '2026-07-13T09:00:00' }];
+  const medx = medxFake({ agenda });
+  const r = await confirmarPorTelefone({ medx, telefone: '11911761633', agora: sexta });
+  assert.equal(r.success, true);
+  assert.equal(r.idAgendamento, 9);
+});
+
+test('confirmarPorTelefone: envio 15 dias — confirma agendamento distante, mas prioriza o mais próximo', async () => {
+  const agenda = [
+    { Id_Agendamento: 20, Status: 1, SMS: '11911761633', TipoAgendamento: 'Consulta', Inicio: '2026-07-23T10:00:00' }, // 15d à frente
+    { Id_Agendamento: 21, Status: 1, SMS: '11911761633', TipoAgendamento: 'Consulta', Inicio: '2026-07-10T10:00:00' }, // amanhã
+  ];
+  const medx = medxFake({ agenda });
+  const r = await confirmarPorTelefone({ medx, telefone: '11911761633', agora: AGORA });
+  assert.equal(r.success, true);
+  assert.equal(r.idAgendamento, 21); // mais próximo vence
+
+  // sem o de amanhã, confirma o de 15 dias
+  const medx2 = medxFake({ agenda: [agenda[0]] });
+  const r2 = await confirmarPorTelefone({ medx: medx2, telefone: '11911761633', agora: AGORA });
+  assert.equal(r2.success, true);
+  assert.equal(r2.idAgendamento, 20);
 });
 
 test('confirmarPorTelefone normaliza telefone (aceita formatos diferentes)', async () => {

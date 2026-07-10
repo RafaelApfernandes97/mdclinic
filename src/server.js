@@ -25,7 +25,8 @@ export function criarServidor({ store, config, executarEnvio, medx, maischat }) 
 
   // Webhook público chamado pelo bot quando o paciente clica em "Confirmar".
   // Sem autenticação (por decisão de produto). O bot só conhece o telefone do paciente:
-  // localizamos o agendamento na janela hoje..amanhã e escrevemos CONFIRMADO no MedX.
+  // localizamos o agendamento na janela hoje..hoje+JANELA_CONFIRMACAO_DIAS (cobre o
+  // envio D+1 — inclusive sexta -> segunda — e o envio 15 dias) e gravamos CONFIRMADO.
   app.post('/api/confirmacao', express.json(), async (req, res) => {
     const corpo = req.body ?? {};
     const telefone = typeof corpo.telefone === 'string' ? corpo.telefone.trim() : '';
@@ -34,7 +35,7 @@ export function criarServidor({ store, config, executarEnvio, medx, maischat }) 
       return res.status(400).json({ success: false, erro: 'telefone obrigatório' });
     }
     try {
-      const r = await confirmarPorTelefone({ medx, telefone });
+      const r = await confirmarPorTelefone({ medx, telefone, janelaDias: config.janelaConfirmacaoDias });
       if (!r.success) {
         console.warn(`[confirmacao] falha ${r.status ?? 500}: ${r.erro} — telefone=${telefone}`);
         return res.status(r.status ?? 500).json({ success: false, erro: r.erro });

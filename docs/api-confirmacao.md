@@ -18,7 +18,10 @@ Content-Type: application/json
 
 1. Normaliza o telefone recebido (aceita `11911761633`, `(11) 91176-1633`,
    `5511911761633` — todos viram `5511911761633`).
-2. Busca a agenda na janela **hoje e amanhã** (fuso de Brasília).
+2. Busca a agenda na janela **hoje até hoje+15 dias** (fuso de Brasília; configurável
+   via `JANELA_CONFIRMACAO_DIAS`). A janela cobre o envio de véspera — inclusive
+   **sexta → segunda**, quando o envio pula o fim de semana — e o **envio antecipado
+   de 15 dias**.
 3. Filtra os agendamentos daquele telefone que **ainda não passaram**.
 4. Confirma o **mais próximo no tempo** (menor horário de início futuro).
 
@@ -82,7 +85,7 @@ curl --location 'http://localhost:3000/api/confirmacao' \
 ### 404 — nenhum agendamento para o telefone
 
 ```json
-{ "success": false, "erro": "Nenhum agendamento futuro para este telefone (hoje/amanhã)" }
+{ "success": false, "erro": "Nenhum agendamento futuro para este telefone (próximos 15 dias)" }
 ```
 
 ### 502 — falha ao gravar no MedX
@@ -94,8 +97,9 @@ curl --location 'http://localhost:3000/api/confirmacao' \
 ## Observações
 
 - **Idempotente:** clicar "Confirmar" mais de uma vez não gera efeito duplicado.
-- **Janela hoje/amanhã:** se o agendamento for depois de amanhã, a resposta é **404**.
-  Nesse caso o bot deve confirmar mais perto da data.
+- **Janela de 15 dias:** se o agendamento for além de hoje+15 dias, a resposta é **404**.
+  A janela acompanha `JANELA_CONFIRMACAO_DIAS` (mesma configuração do envio 15 dias).
 - **Múltiplos agendamentos:** se o mesmo telefone tiver mais de um na janela, somente o
-  **mais próximo** é confirmado.
+  **mais próximo** é confirmado. Se o paciente recebeu a mensagem de 15 dias mas tem
+  outra consulta antes, o clique confirma a consulta **mais próxima**.
 - **Agendamento que já passou:** horários anteriores ao momento da chamada são ignorados.

@@ -1,10 +1,12 @@
 // Confirmação de consulta acionada pelo bot (clique do paciente no botão "Confirmar"
 // do template do WhatsApp). O bot só conhece o TELEFONE do paciente — não o ID do
 // agendamento. Aqui localizamos o agendamento no MedX pelo telefone, na janela
-// hoje..amanhã, escolhemos o mais próximo no tempo e aplicamos o status CONFIRMADO.
+// hoje..hoje+janelaDias, escolhemos o mais próximo no tempo e aplicamos CONFIRMADO.
+// A janela cobre o envio D+1 (inclusive sexta -> segunda, pulando o fim de semana)
+// e o envio antecipado de 15 dias (JANELA_CONFIRMACAO_DIAS).
 
 import { normalizarTelefone } from './agendamentos.js';
-import { hojeISO, amanhaISO, agoraLocalISO } from './datas.js';
+import { hojeISO, somaDiasISO, agoraLocalISO } from './datas.js';
 
 // Índice CONFIRMADO na tabela do MedX (GetStatusNomeAgenda).
 export const STATUS_CONFIRMADO = 8;
@@ -45,15 +47,17 @@ export function selecionarMaisProximo(agenda, telefone, agoraLocal) {
 }
 
 // Confirma o agendamento do paciente a partir do telefone.
-// Janela de busca: hoje e amanhã (fuso BR). Escolhe o mais próximo no tempo.
-export async function confirmarPorTelefone({ medx, telefone, agora = new Date() }) {
+// Janela de busca: hoje até hoje+janelaDias (fuso BR). Escolhe o mais próximo no tempo.
+// janelaDias vem de JANELA_CONFIRMACAO_DIAS (default 15) — mesma janela do envio 15 dias.
+export async function confirmarPorTelefone({ medx, telefone, agora = new Date(), janelaDias = 15 }) {
   const alvo = normalizarTelefone(telefone);
   if (!alvo) return { success: false, status: 400, erro: 'telefone inválido' };
 
-  const agenda = await medx.getAgenda(hojeISO(agora), amanhaISO(agora));
+  const hoje = hojeISO(agora);
+  const agenda = await medx.getAgenda(hoje, somaDiasISO(hoje, janelaDias));
   const item = selecionarMaisProximo(agenda, telefone, agoraLocalISO(agora));
   if (!item) {
-    return { success: false, status: 404, erro: 'Nenhum agendamento futuro para este telefone (hoje/amanhã)' };
+    return { success: false, status: 404, erro: `Nenhum agendamento futuro para este telefone (próximos ${janelaDias} dias)` };
   }
 
   const r = await aplicarConfirmacao(medx, item);
