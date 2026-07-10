@@ -37,6 +37,51 @@ test('envia só elegíveis e registra', async () => {
   assert.equal(d.store.jaEnviado(1), true);
 });
 
+test('sexta envia para segunda (pula fim de semana)', async () => {
+  const d = deps();
+  const r = await executarJobEnvio({ ...d, agora: new Date('2026-07-10T12:00:00Z') }); // sexta
+  assert.equal(r.dataLote, '2026-07-13'); // segunda
+});
+
+test('quinta envia para sexta (D+1 em dia útil)', async () => {
+  const d = deps();
+  const r = await executarJobEnvio({ ...d, agora: new Date('2026-07-09T12:00:00Z') }); // quinta
+  assert.equal(r.dataLote, '2026-07-10'); // sexta
+});
+
+test('envio 15 dias por agenda: só agenda ativa recebe os dias futuros', async () => {
+  const agenda = [
+    // base = segunda 2026-07-13
+    { Id_Agendamento: 1, Id_Paciente: 9, Id_Usuario: 7, SMS: '34999998888', Descricao: 'JOAO', Inicio: '2026-07-13T10:00:00' },
+    // +7 dias (dentro da janela de 15)
+    { Id_Agendamento: 2, Id_Paciente: 9, Id_Usuario: 7, SMS: '34999998888', Descricao: 'MARIA', Inicio: '2026-07-20T10:00:00' },
+  ];
+  const enviados = [];
+  const medx = {
+    getAgenda: async () => agenda,
+    getUsuarios: async () => [{ Id_Usuario: 7, Nome: 'Dra. Marina' }],
+  };
+  const maischat = { sendTemplate: async (p) => { enviados.push(p); return { idMensagem: 'm' + enviados.length }; } };
+  const store = criarStore(':memory:');
+  const config = { templateVariaveis: ['nome', 'medico', 'data', 'hora'], ackPasse1Min: 5, ackPasse2Min: 60, medicoCampoNome: 'Nome' };
+  const agora = new Date('2026-07-10T12:00:00Z'); // sexta -> base = segunda 2026-07-13
+
+  // sem 15 dias ativo: só a base (item 1); item 2 (futuro) fica para o D-1 dele
+  let r = await executarJobEnvio({ medx, maischat, store, config, agora });
+  assert.equal(r.enviados, 1);
+  assert.equal(store.jaEnviado(1), true);
+  assert.equal(store.jaEnviado(2), false);
+
+  // ativa 15 dias para a agenda 7 e dispara de novo
+  store.definirEnvio15Dias(7, true);
+  r = await executarJobEnvio({ medx, maischat, store, config, agora });
+  assert.equal(store.jaEnviado(2), true);          // futuro agora enviado
+  assert.equal(r.enviados, 1);                      // item 1 caiu no dedup
+  const ag = store.agendaCompleta('2026-07-20');    // agrupado sob o próprio dia
+  assert.ok(ag.find((x) => x.id_agendamento === 2));
+  store.fechar();
+});
+
 test('suporta variáveis dia e hora_curta (template MD Infusion)', async () => {
   const d = deps();
   d.config.templateVariaveis = ['nome', 'dia', 'hora_curta'];

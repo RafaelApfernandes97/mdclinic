@@ -6,12 +6,19 @@ import { criarStore } from '../src/store.js';
 test('classificarItem: motivo por precedência', () => {
   assert.deepEqual(classificarItem({ Descricao: 'FECHADA', Id_Paciente: 5, SMS: '34999998888' }),
     { elegivel: 0, motivo: 'bloqueio' });
+  assert.deepEqual(classificarItem({ Descricao: 'JOAO', Id_Paciente: 5, SMS: '34999998888', Status: 0 }),
+    { elegivel: 0, motivo: 'desmarcado' });
   assert.deepEqual(classificarItem({ Descricao: 'JOAO', Id_Paciente: 0, SMS: '34999998888' }),
     { elegivel: 0, motivo: 'sem_paciente' });
   assert.deepEqual(classificarItem({ Descricao: 'JOAO', Id_Paciente: 5, SMS: '' }),
     { elegivel: 0, motivo: 'sem_telefone' });
+  assert.deepEqual(classificarItem({ Descricao: 'JOAO', Id_Paciente: 5, SMS: '34999998888', Status: 8 }),
+    { elegivel: 1, motivo: null });
   assert.deepEqual(classificarItem({ Descricao: 'JOAO', Id_Paciente: 5, SMS: '34999998888' }),
     { elegivel: 1, motivo: null });
+  // bloqueio tem precedência sobre desmarcado (bloco fechado com Status 0)
+  assert.deepEqual(classificarItem({ Descricao: 'FECHADA (SEQUENCIAL)', Id_Paciente: 5, SMS: '34999998888', Status: 0 }),
+    { elegivel: 0, motivo: 'bloqueio' });
 });
 
 test('mapaMedicos: aceita formato real do MedX (IddoUsuario/Usuario)', () => {

@@ -67,6 +67,69 @@ test('POST /api/enviar dispara o envio manual (respeita DRY_RUN)', async () => {
   });
 });
 
+test('POST /api/medico-15dias ativa a agenda e retorna a lista atualizada', async () => {
+  const store = criarStore(':memory:');
+  store.upsertMedico({ id_usuario: 7, nome: 'Dra. Marina' });
+  const app = criarServidor({ store, config, executarEnvio: async () => ({}), medx: {} });
+  await comServidor(app, async (port) => {
+    const cookie = await login(port);
+    const res = await fetch(`http://127.0.0.1:${port}/api/medico-15dias`, {
+      method: 'POST', headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ idUsuario: 7, ativo: true }),
+    });
+    assert.equal(res.status, 200);
+    const d = await res.json();
+    assert.equal(d.ok, true);
+    assert.equal(d.medicos.find((m) => m.id_usuario === 7).envio_15dias, 1);
+    assert.deepEqual(store.medicosEnvio15Dias(), [7]);
+  });
+});
+
+test('POST /api/medico-15dias 404 para agenda inexistente', async () => {
+  const app = criarServidor({ store: criarStore(':memory:'), config, executarEnvio: async () => ({}), medx: {} });
+  await comServidor(app, async (port) => {
+    const cookie = await login(port);
+    const res = await fetch(`http://127.0.0.1:${port}/api/medico-15dias`, {
+      method: 'POST', headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ idUsuario: 999, ativo: true }),
+    });
+    assert.equal(res.status, 404);
+  });
+});
+
+test('POST /api/medico-15dias exige sessão', async () => {
+  const app = criarServidor({ store: criarStore(':memory:'), config, executarEnvio: async () => ({}), medx: {} });
+  await comServidor(app, async (port) => {
+    const res = await fetch(`http://127.0.0.1:${port}/api/medico-15dias`, {
+      method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ idUsuario: 7, ativo: true }),
+    });
+    assert.equal(res.status, 302);
+  });
+});
+
+test('POST /api/disparar-envio chama executarEnvio e devolve o resultado', async () => {
+  let chamou = false;
+  const app = criarServidor({ store: criarStore(':memory:'), config,
+    executarEnvio: async () => { chamou = true; return { enviados: 3, pulados: 1, erros: 0 }; }, medx: {} });
+  await comServidor(app, async (port) => {
+    const cookie = await login(port);
+    const res = await fetch(`http://127.0.0.1:${port}/api/disparar-envio`, { method: 'POST', headers: { cookie } });
+    assert.equal(res.status, 200);
+    const d = await res.json();
+    assert.equal(chamou, true);
+    assert.equal(d.resultado.enviados, 3);
+  });
+});
+
+test('POST /api/disparar-envio exige sessão', async () => {
+  const app = criarServidor({ store: criarStore(':memory:'), config, executarEnvio: async () => ({}), medx: {} });
+  await comServidor(app, async (port) => {
+    const res = await fetch(`http://127.0.0.1:${port}/api/disparar-envio`, { method: 'POST', redirect: 'manual' });
+    assert.equal(res.status, 302);
+  });
+});
+
 test('POST /api/atualizar-ack consulta o Mais Chat e atualiza os status', async () => {
   const store = criarStore(':memory:');
   store.upsertAgendaItem({
@@ -193,6 +256,28 @@ test('/api/atualizar-agenda responde 502 quando MedX falha', async () => {
     const cookie = await login(port);
     const res = await fetch(`http://127.0.0.1:${port}/api/atualizar-agenda?data=2026-06-24`, { method: 'POST', headers: { cookie } });
     assert.equal(res.status, 502);
+  });
+});
+
+test('/api/hora retorna o epoch do servidor e o fuso de Brasília', async () => {
+  const app = criarServidor({ store: criarStore(':memory:'), config, executarEnvio: async () => ({}), medx: {} });
+  await comServidor(app, async (port) => {
+    const cookie = await login(port);
+    const antes = Date.now();
+    const res = await fetch(`http://127.0.0.1:${port}/api/hora`, { headers: { cookie } });
+    const depois = Date.now();
+    assert.equal(res.status, 200);
+    const d = await res.json();
+    assert.equal(d.tz, 'America/Sao_Paulo');
+    assert.ok(d.epoch >= antes && d.epoch <= depois);
+  });
+});
+
+test('/api/hora sem sessão redireciona', async () => {
+  const app = criarServidor({ store: criarStore(':memory:'), config, executarEnvio: async () => ({}), medx: {} });
+  await comServidor(app, async (port) => {
+    const res = await fetch(`http://127.0.0.1:${port}/api/hora`, { redirect: 'manual' });
+    assert.equal(res.status, 302);
   });
 });
 

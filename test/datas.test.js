@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  amanhaISO, formatarDataBR, formatarHoraBR, formatarDiaTemplate, formatarHoraTemplate,
+  amanhaISO, somaDiasISO, ehFimDeSemanaBR, proximoDiaUtilISO,
+  formatarDataBR, formatarHoraBR, formatarDiaTemplate, formatarHoraTemplate,
   formatarDataCurta, formatarHoraH, saudacaoBR,
 } from '../src/datas.js';
 
@@ -15,6 +16,29 @@ test('amanhaISO trata virada de dia em UTC que ainda é o mesmo dia no BR', () =
   // 2026-06-22T02:00:00Z = 23:00 BRT do dia 21 → amanhã = 22
   const agora = new Date('2026-06-22T02:00:00Z');
   assert.equal(amanhaISO(agora), '2026-06-22');
+});
+
+test('somaDiasISO soma dias (aritmética de calendário)', () => {
+  assert.equal(somaDiasISO('2026-07-13', 14), '2026-07-27');
+  assert.equal(somaDiasISO('2026-07-13', 0), '2026-07-13');
+  assert.equal(somaDiasISO('2026-07-31', 1), '2026-08-01');
+});
+
+test('ehFimDeSemanaBR: sábado/domingo true, dias úteis false', () => {
+  assert.equal(ehFimDeSemanaBR(new Date('2026-07-11T12:00:00Z')), true);  // sábado
+  assert.equal(ehFimDeSemanaBR(new Date('2026-07-12T12:00:00Z')), true);  // domingo
+  assert.equal(ehFimDeSemanaBR(new Date('2026-07-10T12:00:00Z')), false); // sexta
+  assert.equal(ehFimDeSemanaBR(new Date('2026-07-13T12:00:00Z')), false); // segunda
+  // 02:00Z de sábado ainda é sexta 23:00 no fuso BR => dia útil
+  assert.equal(ehFimDeSemanaBR(new Date('2026-07-11T02:00:00Z')), false);
+});
+
+test('proximoDiaUtilISO: pula fim de semana (sexta -> segunda)', () => {
+  assert.equal(proximoDiaUtilISO(new Date('2026-07-10T12:00:00Z')), '2026-07-13'); // sexta -> seg
+  assert.equal(proximoDiaUtilISO(new Date('2026-07-11T12:00:00Z')), '2026-07-13'); // sáb -> seg
+  assert.equal(proximoDiaUtilISO(new Date('2026-07-12T12:00:00Z')), '2026-07-13'); // dom -> seg
+  assert.equal(proximoDiaUtilISO(new Date('2026-07-13T12:00:00Z')), '2026-07-14'); // seg -> ter
+  assert.equal(proximoDiaUtilISO(new Date('2026-07-09T12:00:00Z')), '2026-07-10'); // qui -> sex
 });
 
 test('formatarDataBR e formatarHoraBR', () => {

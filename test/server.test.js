@@ -15,7 +15,16 @@ function appDeTeste(overrides = {}) {
     dashboardUser: 'admin', dashboardPassword: 'pw', sessionSecret: 's',
     runToken: 'rt', port: 0,
   };
-  return criarServidor({ store, config, executarEnvio: async () => ({ enviados: 0 }), ...overrides });
+  // Inicio bem no futuro => sempre "próximo" independente do relógio do teste.
+  const medx = {
+    getAgenda: async () => [{
+      Id_Agendamento: -19659252, Status: 1, SMS: '11911761633',
+      TipoAgendamento: 'Consulta', Descricao: 'Rafael', Inicio: '2999-01-01T10:00:00',
+    }],
+    getTiposAgendamento: async () => [{ Id_do_TipoConsulta: -2, TipoConsulta: 'Consulta' }],
+    atualizarStatus: async () => 'Success',
+  };
+  return criarServidor({ store, config, medx, executarEnvio: async () => ({ enviados: 0 }), ...overrides });
 }
 
 async function req(app, method, path, { headers = {}, body } = {}) {
@@ -46,4 +55,35 @@ test('/run-now exige token', async () => {
   assert.equal(r.status, 401);
   const r2 = await req(appDeTeste(), 'POST', '/run-now', { headers: { 'x-run-token': 'rt' } });
   assert.equal(r2.status, 200);
+});
+
+const jsonHeaders = (extra = {}) => ({ 'content-type': 'application/json', ...extra });
+
+test('/api/confirmacao confirma pelo telefone (sem token)', async () => {
+  const r = await req(appDeTeste(), 'POST', '/api/confirmacao', {
+    headers: jsonHeaders(),
+    body: JSON.stringify({ telefone: '11911761633' }),
+  });
+  assert.equal(r.status, 200);
+  const body = JSON.parse(r.texto);
+  assert.equal(body.success, true);
+  assert.equal(body.statusAplicado, 'CONFIRMADO');
+  assert.equal(body.idAgendamento, -19659252);
+});
+
+test('/api/confirmacao exige telefone', async () => {
+  const r = await req(appDeTeste(), 'POST', '/api/confirmacao', {
+    headers: jsonHeaders(), body: JSON.stringify({}),
+  });
+  assert.equal(r.status, 400);
+  assert.equal(JSON.parse(r.texto).success, false);
+});
+
+test('/api/confirmacao 404 quando telefone não tem agendamento na janela', async () => {
+  const r = await req(appDeTeste(), 'POST', '/api/confirmacao', {
+    headers: jsonHeaders(),
+    body: JSON.stringify({ telefone: '34999990000' }),
+  });
+  assert.equal(r.status, 404);
+  assert.equal(JSON.parse(r.texto).success, false);
 });

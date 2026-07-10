@@ -35,6 +35,11 @@
     background:var(--gray-800);color:var(--white);padding:.5rem .9rem}
   button.primary:disabled{opacity:.6;cursor:default}
   a.logout{color:var(--blue-500);font-size:.85rem;text-decoration:none}
+  .relogio{display:inline-flex;align-items:center;gap:.4rem;background:var(--white);
+    border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:.45rem .6rem;
+    font-size:.85rem;color:var(--gray-800);white-space:nowrap}
+  .relogio .hora{font-weight:600;font-variant-numeric:tabular-nums}
+  .relogio .tz{font-size:.72rem;color:var(--gray-400)}
   .toast{display:none;background:var(--red-100);color:var(--red-700);padding:.6rem .9rem;
     border-radius:var(--radius-sm);margin-bottom:1rem;font-size:.9rem}
   .cards{display:flex;gap:.8rem;flex-wrap:wrap;margin-bottom:1.2rem}
@@ -67,6 +72,19 @@
   .chip-error{background:var(--red-100);color:var(--red-700)}
   .chip-warn{background:var(--yellow-100);color:#8a6d00}
   .chip-gray{background:var(--gray-100);color:var(--gray-600)}
+  .toast.ok{background:var(--green-50);color:var(--green-500)}
+  .painel15{background:var(--white);border:1px solid var(--gray-100);border-radius:var(--radius-md);
+    padding:.3rem .9rem;box-shadow:var(--shadow-100);margin-bottom:1rem}
+  .painel15>summary{cursor:pointer;font-weight:600;font-size:.9rem;color:var(--gray-800);
+    padding:.5rem 0;list-style:none;user-select:none}
+  .painel15>summary::-webkit-details-marker{display:none}
+  .painel15>summary::before{content:'⚙  '}
+  .painel15-body{padding:.4rem 0 .6rem}
+  .painel15 .hint{font-size:.8rem;color:var(--gray-600);margin:.2rem 0 .8rem}
+  .lista15{display:flex;flex-wrap:wrap;gap:.45rem .6rem;margin-bottom:.9rem}
+  .lista15 label{display:inline-flex;align-items:center;gap:.4rem;font-size:.85rem;color:var(--gray-800);
+    background:var(--gray-100);border-radius:9999px;padding:.25rem .75rem;cursor:pointer}
+  .lista15 input{accent-color:var(--orange-500);cursor:pointer}
   .vazio{color:var(--gray-600);text-align:center;padding:2rem}
   td.acao,th.acao{width:44px;text-align:center;padding-left:.25rem}
   .enviar{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;
@@ -84,6 +102,9 @@
     <h1>Mais Chat</h1><span>Agenda &amp; Confirmações</span>
   </div>
   <div class="controls">
+    <span class="relogio" title="Hora atual do servidor (fuso de Brasília)">
+      <span class="hora" id="relogio">--:--:--</span><span class="tz">servidor · Brasília</span>
+    </span>
     <input type="date" id="data">
     <select id="medico" title="Filtrar por médico"><option value="">Todos os médicos</option></select>
     <button class="primary" id="atualizar">Atualizar agenda</button>
@@ -91,6 +112,14 @@
   </div>
 </header>
 <div class="toast" id="toast"></div>
+<details class="painel15" id="painel15">
+  <summary>Confirmação 15 dias · ativar por agenda</summary>
+  <div class="painel15-body">
+    <p class="hint">Agendas marcadas enviam confirmações dos próximos 15 dias (dias úteis). As demais enviam apenas o próximo dia útil.</p>
+    <div class="lista15" id="lista15"></div>
+    <button class="primary" id="disparar15">Enviar próximos 15 dias agora</button>
+  </div>
+</details>
 <div class="cards" id="cards"></div>
 <div class="split">
   <div id="agendas"></div>
@@ -120,7 +149,7 @@ const ICON_AVIAO='<svg viewBox="0 0 24 24" width="16" height="16" fill="currentC
 
 function statusInfo(r){
   if(r.elegivel===0){
-    const m={bloqueio:['Bloqueio','chip-gray'],sem_telefone:['Sem telefone','chip-warn'],sem_paciente:['Sem paciente','chip-warn']};
+    const m={desmarcado:['Desmarcado','chip-error'],bloqueio:['Bloqueio','chip-gray'],sem_telefone:['Sem telefone','chip-warn'],sem_paciente:['Sem paciente','chip-warn']};
     return m[r.motivo]||['Não elegível','chip-gray'];
   }
   if(r.ack==='lido')return['Lido','chip-success'];
@@ -151,7 +180,7 @@ function render(d){
 async function carregarMedicos(){
   try{
     const r=await fetch('/api/medicos');
-    if(r.ok){ const d=await r.json(); preencherSelect(d.medicos); }
+    if(r.ok){ const d=await r.json(); medicosCache=d.medicos||[]; preencherSelect(medicosCache); renderLista15(); }
   }catch(e){ /* mantém o que houver no seletor */ }
 }
 
@@ -228,8 +257,21 @@ function ajustarScroll(){
 
 function mostrarErro(msg){
   const t=document.getElementById('toast');
-  t.textContent=msg; t.style.display='block';
+  t.textContent=msg; t.classList.remove('ok'); t.style.display='block';
   setTimeout(()=>{t.style.display='none';},4000);
+}
+function mostrarOk(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('ok'); t.style.display='block';
+  setTimeout(()=>{t.style.display='none'; t.classList.remove('ok');},5000);
+}
+// ---- painel "Confirmação 15 dias" (ativação por agenda) ----
+let medicosCache=[];
+function renderLista15(){
+  const cont=document.getElementById('lista15');
+  if(!medicosCache.length){ cont.innerHTML='<span class="hint">Nenhuma agenda carregada.</span>'; return; }
+  cont.innerHTML=medicosCache.map((m)=>
+    `<label><input type="checkbox" data-id="${m.id_usuario}" ${m.envio_15dias?'checked':''}> ${esc(m.nome)}</label>`).join('');
 }
 
 async function carregar(){
@@ -262,6 +304,28 @@ async function atualizar(){
   } finally { btn.disabled=false; btn.textContent='Atualizar agenda'; }
 }
 
+// ---- relógio do servidor (fuso de Brasília) ----
+// mostra a hora do SERVIDOR, não a do navegador: sincroniza o epoch via
+// /api/hora, tica localmente a cada segundo e re-sincroniza a cada 60s.
+let deltaServidor=null; // epoch do servidor - epoch do navegador (ms)
+const fmtRelogio=new Intl.DateTimeFormat('pt-BR',{
+  timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'});
+async function sincronizarRelogio(){
+  try{
+    const r=await fetch('/api/hora');
+    if(!r.ok) return;
+    const d=await r.json();
+    deltaServidor=d.epoch-Date.now();
+  }catch(e){ /* mantém o último delta conhecido */ }
+}
+function ticarRelogio(){
+  if(deltaServidor===null) return;
+  document.getElementById('relogio').textContent=fmtRelogio.format(new Date(Date.now()+deltaServidor));
+}
+sincronizarRelogio().then(ticarRelogio);
+setInterval(ticarRelogio,1000);
+setInterval(sincronizarRelogio,60000);
+
 const hoje=new Date().toISOString().slice(0,10);
 document.getElementById('data').value=hoje;
 document.getElementById('data').addEventListener('change',carregar);
@@ -287,6 +351,33 @@ document.getElementById('agendas').addEventListener('click',async (e)=>{
     if(d.dryRun){ mostrarErro('DRY_RUN ativo: envio simulado (nada foi enviado).'); return; }
     carregar(); // recarrega para refletir o novo status
   } finally { b.disabled=false; }
+});
+// ativa/desativa o envio de 15 dias de uma agenda
+document.getElementById('lista15').addEventListener('change',async (e)=>{
+  const cb=e.target.closest('input[type=checkbox]'); if(!cb) return;
+  cb.disabled=true;
+  try{
+    const r=await fetch('/api/medico-15dias',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({idUsuario:Number(cb.dataset.id),ativo:cb.checked})});
+    if(!r.ok){ mostrarErro('Não foi possível atualizar a agenda.'); cb.checked=!cb.checked; return; }
+    const d=await r.json(); medicosCache=d.medicos||medicosCache;
+  }catch(err){ mostrarErro('Falha de rede ao salvar.'); cb.checked=!cb.checked; }
+  finally{ cb.disabled=false; }
+});
+// disparo manual do envio (base + janela 15d das agendas ativas)
+document.getElementById('disparar15').addEventListener('click',async ()=>{
+  if(!confirm('Disparar envio agora? (próximo dia útil + 15 dias das agendas ativas)')) return;
+  const btn=document.getElementById('disparar15');
+  btn.disabled=true; btn.textContent='Enviando…';
+  try{
+    const r=await fetch('/api/disparar-envio',{method:'POST'});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok){ mostrarErro(d.erro||'Falha ao disparar o envio.'); return; }
+    const rz=d.resultado||{};
+    mostrarOk(`Disparo concluído: ${rz.enviados??0} enviados, ${rz.pulados??0} pulados, ${rz.erros??0} erros`+(rz.dryRun?' (DRY_RUN)':'')+'.');
+    carregar();
+  } catch(err){ mostrarErro('Falha de rede no disparo.'); }
+  finally { btn.disabled=false; btn.textContent='Enviar próximos 15 dias agora'; }
 });
 carregarMedicos();
 carregar();

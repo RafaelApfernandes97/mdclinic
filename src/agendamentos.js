@@ -21,8 +21,17 @@ export function ehBloqueio(descricao = '') {
   return PALAVRAS_BLOQUEIO.some((p) => up.includes(p));
 }
 
+// Status DESMARCADO na tabela do MedX (GetStatusNomeAgenda, índice 0).
+export const STATUS_DESMARCADO = 0;
+
+// Agendamento desmarcado no MedX: não deve receber confirmação.
+export function ehDesmarcado(item) {
+  return Number(item?.Status) === STATUS_DESMARCADO;
+}
+
 export function ehElegivel(item) {
   if (ehBloqueio(item.Descricao)) return false;
+  if (ehDesmarcado(item)) return false;
   if (!item.Id_Paciente) return false;
   if (!normalizarTelefone(item.SMS)) return false;
   return true;

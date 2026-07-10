@@ -44,8 +44,9 @@ CREATE TABLE IF NOT EXISTS agenda_itens (
 );
 CREATE INDEX IF NOT EXISTS idx_agenda_lote ON agenda_itens(data_lote);
 CREATE TABLE IF NOT EXISTS medicos (
-  id_usuario INTEGER PRIMARY KEY,
-  nome       TEXT
+  id_usuario   INTEGER PRIMARY KEY,
+  nome         TEXT,
+  envio_15dias INTEGER DEFAULT 0
 );
 `;
 
@@ -54,6 +55,12 @@ export function criarStore(caminho) {
   const db = new DatabaseSync(caminho);
   db.exec('PRAGMA journal_mode = WAL');
   db.exec(SCHEMA);
+
+  // Migração idempotente: adiciona colunas novas em bancos já existentes.
+  const colsMedicos = db.prepare(`PRAGMA table_info(medicos)`).all();
+  if (!colsMedicos.some((c) => c.name === 'envio_15dias')) {
+    db.exec(`ALTER TABLE medicos ADD COLUMN envio_15dias INTEGER DEFAULT 0`);
+  }
 
   const upsertEnvio = db.prepare(`
     INSERT INTO envios (id_agendamento, id_paciente, nome_paciente, telefone, id_usuario,
@@ -89,7 +96,18 @@ export function criarStore(caminho) {
       upsertMedicoStmt.run(m);
     },
     listarMedicos() {
-      return db.prepare(`SELECT id_usuario, nome FROM medicos ORDER BY nome`).all();
+      return db.prepare(`SELECT id_usuario, nome, envio_15dias FROM medicos ORDER BY nome`).all();
+    },
+    // ativa/desativa o envio de 15 dias para uma agenda (médico). Retorna true se atualizou.
+    definirEnvio15Dias(idUsuario, ativo) {
+      const r = db.prepare(`UPDATE medicos SET envio_15dias=? WHERE id_usuario=?`)
+        .run(ativo ? 1 : 0, idUsuario);
+      return r.changes > 0;
+    },
+    // ids das agendas com envio de 15 dias ativado.
+    medicosEnvio15Dias() {
+      return db.prepare(`SELECT id_usuario FROM medicos WHERE envio_15dias=1`)
+        .all().map((m) => m.id_usuario);
     },
     jaEnviado(id) {
       const r = db.prepare(

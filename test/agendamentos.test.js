@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  extrairNomePaciente, normalizarTelefone, ehBloqueio, ehElegivel, montarEnvio,
+  extrairNomePaciente, normalizarTelefone, ehBloqueio, ehDesmarcado, ehElegivel, montarEnvio,
 } from '../src/agendamentos.js';
 
 test('extrairNomePaciente pega o trecho antes da primeira vírgula', () => {
@@ -23,11 +23,21 @@ test('ehBloqueio detecta palavras-chave (case-insensitive)', () => {
   assert.equal(ehBloqueio('Joao da Silva, consulta'), false);
 });
 
-test('ehElegivel exige SMS, paciente e não-bloqueio', () => {
+test('ehDesmarcado detecta Status 0 (DESMARCADO) e ignora demais', () => {
+  assert.equal(ehDesmarcado({ Status: 0 }), true);
+  assert.equal(ehDesmarcado({ Status: 8 }), false); // CONFIRMADO
+  assert.equal(ehDesmarcado({ Status: 1 }), false); // PRIMEIRA CONSULTA
+  assert.equal(ehDesmarcado({}), false);            // sem Status => não desmarcado
+});
+
+test('ehElegivel exige SMS, paciente, não-bloqueio e não-desmarcado', () => {
   assert.equal(ehElegivel({ SMS: '34999998888', Id_Paciente: 10, Descricao: 'Joao' }), true);
   assert.equal(ehElegivel({ SMS: '', Id_Paciente: 10, Descricao: 'Joao' }), false);
   assert.equal(ehElegivel({ SMS: '34999998888', Id_Paciente: 0, Descricao: 'Joao' }), false);
   assert.equal(ehElegivel({ SMS: '34999998888', Id_Paciente: 10, Descricao: 'FECHADA' }), false);
+  // desmarcado no MedX não recebe confirmação, mesmo com paciente + telefone válidos
+  assert.equal(ehElegivel({ SMS: '34999998888', Id_Paciente: 10, Descricao: 'Joao', Status: 0 }), false);
+  assert.equal(ehElegivel({ SMS: '34999998888', Id_Paciente: 10, Descricao: 'Joao', Status: 8 }), true);
 });
 
 test('montarEnvio normaliza e resolve médico', () => {

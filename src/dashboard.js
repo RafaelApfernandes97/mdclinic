@@ -22,9 +22,10 @@ function exigirSessao(req, res, next) {
   return res.redirect('/login');
 }
 
-export function montarDashboard({ store, config, medx, maischat }) {
+export function montarDashboard({ store, config, medx, maischat, executarEnvio }) {
   const router = express.Router();
   router.use(express.urlencoded({ extended: false }));
+  router.use(express.json());
   router.use(cookieSession({
     name: 'sess', secret: config.sessionSecret, maxAge: 8 * 3600 * 1000, httpOnly: true,
     secure: config.cookieSegura ?? false,
@@ -56,6 +57,28 @@ export function montarDashboard({ store, config, medx, maischat }) {
     res.json({ medicos: store.listarMedicos() });
   });
 
+  // ativa/desativa o envio de 15 dias para uma agenda (médico).
+  router.post('/api/medico-15dias', exigirSessao, (req, res) => {
+    const idUsuario = Number(req.body?.idUsuario);
+    if (!Number.isInteger(idUsuario)) return res.status(400).json({ erro: 'idUsuario inválido' });
+    const ativo = req.body?.ativo === true || req.body?.ativo === 'true';
+    const ok = store.definirEnvio15Dias(idUsuario, ativo);
+    if (!ok) return res.status(404).json({ erro: 'Agenda não encontrada' });
+    res.json({ ok: true, idUsuario, ativo, medicos: store.listarMedicos() });
+  });
+
+  // disparo manual do envio (mesma régua do cron: base + janela 15d das agendas ativas).
+  router.post('/api/disparar-envio', exigirSessao, async (req, res) => {
+    if (!executarEnvio) return res.status(503).json({ erro: 'Envio indisponível' });
+    try {
+      const resultado = await executarEnvio();
+      res.json({ ok: true, resultado });
+    } catch (e) {
+      console.error('[dashboard] falha no disparo manual:', e.message);
+      res.status(500).json({ erro: 'Falha ao disparar o envio' });
+    }
+  });
+
   router.post('/api/enviar', exigirSessao, async (req, res) => {
     const id = Number(req.query.id);
     if (!Number.isFinite(id)) return res.status(400).json({ erro: 'id inválido' });
@@ -82,6 +105,12 @@ export function montarDashboard({ store, config, medx, maischat }) {
       medicos: store.listarMedicos(),
       ackAtualizados,
     });
+  });
+
+  // relógio do servidor — o front formata este epoch no fuso de Brasília para
+  // conferir se o relógio do servidor está correto.
+  router.get('/api/hora', exigirSessao, (req, res) => {
+    res.json({ epoch: Date.now(), tz: 'America/Sao_Paulo' });
   });
 
   router.get('/api/dados', exigirSessao, (req, res) => {

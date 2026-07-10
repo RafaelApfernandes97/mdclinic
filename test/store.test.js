@@ -136,6 +136,27 @@ test('medicos: upsert idempotente e listagem ordenada por nome', () => {
   s.fechar();
 });
 
+test('envio_15dias: ativar/desativar e listar agendas habilitadas', () => {
+  const s = novaStore();
+  s.upsertMedico({ id_usuario: 7, nome: 'Dra. Marina' });
+  s.upsertMedico({ id_usuario: 8, nome: 'Dr. Carlos' });
+  assert.deepEqual(s.medicosEnvio15Dias(), []);
+  assert.equal(s.listarMedicos().find((m) => m.id_usuario === 7).envio_15dias, 0);
+
+  assert.equal(s.definirEnvio15Dias(7, true), true);
+  assert.deepEqual(s.medicosEnvio15Dias(), [7]);
+  assert.equal(s.listarMedicos().find((m) => m.id_usuario === 7).envio_15dias, 1);
+
+  // upsert do nome não reseta a flag
+  s.upsertMedico({ id_usuario: 7, nome: 'Dra. Marina Souza' });
+  assert.deepEqual(s.medicosEnvio15Dias(), [7]);
+
+  s.definirEnvio15Dias(7, false);
+  assert.deepEqual(s.medicosEnvio15Dias(), []);
+  assert.equal(s.definirEnvio15Dias(999, true), false); // agenda inexistente
+  s.fechar();
+});
+
 test('agenda_itens: upsert é idempotente (atualiza, não duplica)', () => {
   const s = novaStore();
   const item = {
