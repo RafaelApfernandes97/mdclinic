@@ -15,8 +15,9 @@ test('carrega defaults', () => {
   assert.equal(c.cronHorario, '0 8 * * *');
   assert.equal(c.ackPasse1Min, 5);
   assert.equal(c.ackPasse2Min, 60);
+  assert.equal(c.janelaConfirmacaoDias, 4);
   assert.deepEqual(c.templateVariaveis, ['nome', 'medico', 'data', 'hora']);
-  assert.equal(c.port, 3000);
+  assert.equal(c.port, 5300);
   assert.equal(c.maischatBroker, 'wppCloudAPI');
   assert.equal(c.maischatApiKey, null);
 });

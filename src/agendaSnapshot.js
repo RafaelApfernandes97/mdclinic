@@ -53,9 +53,9 @@ export function gravarSnapshot({ store, agenda, mapa, dataLote, agora = new Date
   return { dataLote, total, elegiveis };
 }
 
-export async function snapshotAgenda({ medx, store, config, dataLote, agora = new Date() }) {
+export async function snapshotAgenda({ medx, store, config, dataLote, dataFim = dataLote, agora = new Date() }) {
   const [agenda, usuarios] = await Promise.all([
-    medx.getAgenda(dataLote, dataLote), medx.getUsuarios(),
+    medx.getAgenda(dataLote, dataFim), medx.getUsuarios(),
   ]);
   const mapa = mapaMedicos(usuarios, config.medicoCampoNome);
   return gravarSnapshot({ store, agenda, mapa, dataLote, agora });

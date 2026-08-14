@@ -29,16 +29,16 @@ export function resolverTemplate(nomeMedico, config) {
   return { templateNome: config.templateNome, ordem: config.templateVariaveis };
 }
 
-export function montarVariaveisTemplate({ nomePaciente, nomeMedico, inicio, ordem, agora = new Date() }) {
+export function montarVariaveisTemplate({ nomePaciente, nomeMedico, inicio, ordem, agora = new Date(), semHorario = false }) {
   const valores = {
     nome: nomePaciente,
     medico: nomeSemTitulo(nomeMedico),
     data: formatarDataBR(inicio),
-    hora: formatarHoraBR(inicio),
+    hora: semHorario ? '' : formatarHoraBR(inicio),
     dia: formatarDiaTemplate(inicio),
-    hora_curta: formatarHoraTemplate(inicio),
+    hora_curta: semHorario ? '' : formatarHoraTemplate(inicio),
     data_curta: formatarDataCurta(inicio),
-    hora_h: formatarHoraH(inicio),
+    hora_h: semHorario ? '' : formatarHoraH(inicio),
     saudacao: saudacaoBR(agora),
   };
   return ordem.map((chave) => valores[chave] ?? '');

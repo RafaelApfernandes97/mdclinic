@@ -1,3 +1,5 @@
+import { slugMedico } from './templates.js';
+
 const OBRIGATORIAS = [
   'MEDX_BASE_URL', 'MEDX_TOKEN_INTEGRACAO', 'MAISCHAT_BASE_URL',
   'MAISCHAT_APP_ID', 'MAISCHAT_SOURCE', 'MAISCHAT_META_TOKEN',
@@ -11,6 +13,10 @@ export function carregarConfig(env = process.env) {
   return {
     medxBaseUrl: env.MEDX_BASE_URL,
     medxToken: env.MEDX_TOKEN_INTEGRACAO,
+    // Opcional: sem token, o restante do dashboard MedX segue operando normalmente.
+    netvacinasGraphqlUrl: env.NETVACINAS_GRAPHQL_URL ?? 'https://api.netvacinas.com.br/graphql',
+    netvacinasToken: env.NETVACINAS_TOKEN ?? null,
+    netvacinasNomeAgenda: env.NETVACINAS_NOME_AGENDA ?? 'NetVacinas',
     maischatBaseUrl: env.MAISCHAT_BASE_URL,
     maischatBroker: env.MAISCHAT_BROKER ?? 'wppCloudAPI',
     maischatAppId: env.MAISCHAT_APP_ID,
@@ -22,15 +28,20 @@ export function carregarConfig(env = process.env) {
       .split(',').map((v) => v.trim()).filter(Boolean),
     templateIdioma: env.MAISCHAT_TEMPLATE_IDIOMA ?? 'pt_BR',
     medicoCampoNome: env.MEDX_MEDICO_CAMPO ?? 'Usuario',
+    // Agendas com envio em massa habilitado no dashboard (slugs, ex.: "dramarinadedeus").
+    // Aceita nomes completos: cada valor é normalizado com slugMedico.
+    envioMassaMedicos: (env.ENVIO_MASSA_MEDICOS ?? 'dramarinadedeus')
+      .split(',').map((v) => slugMedico(v)).filter(Boolean),
     cronHorario: env.CRON_HORARIO ?? '0 8 * * *',
-    janelaConfirmacaoDias: Number(env.JANELA_CONFIRMACAO_DIAS ?? 15),
+    // Janela do webhook: cobre o lembrete D+1, inclusive sexta-feira para segunda-feira.
+    janelaConfirmacaoDias: Number(env.JANELA_CONFIRMACAO_DIAS ?? 4),
     ackPasse1Min: Number(env.ACK_PASSE1_MIN ?? 5),
     ackPasse2Min: Number(env.ACK_PASSE2_MIN ?? 60),
     runToken: env.RUN_TOKEN,
     dashboardUser: env.DASHBOARD_USER ?? 'admin',
     dashboardPassword: env.DASHBOARD_PASSWORD,
     sessionSecret: env.SESSION_SECRET,
-    port: Number(env.PORT ?? 3000),
+    port: Number(env.PORT ?? 5300),
     sqlitePath: env.SQLITE_PATH ?? './data/envios.db',
     dryRun: env.DRY_RUN === 'true',
     debug: env.DEBUG === 'true',

@@ -125,6 +125,36 @@ test('agendaItem retorna o item (ou null) e agendaCompleta inclui id_agendamento
   s.fechar();
 });
 
+test('agendaPendentes e resumoEnvioMassa recortam a agenda do médico no período', () => {
+  const s = novaStore();
+  const baseAg = {
+    data_lote: '2026-07-01', id_usuario: 7, nome_medico: 'Dra Marina',
+    id_paciente: 9, nome_paciente: 'Ana', telefone: '5534999990001',
+    inicio: '2026-07-01T09:00:00', elegivel: 1, motivo: null,
+    descricao: 'ANA', capturado_em: 'x',
+  };
+  s.upsertAgendaItem({ ...baseAg, id_agendamento: 1 }); // pendente
+  s.upsertAgendaItem({ ...baseAg, id_agendamento: 2, data_lote: '2026-07-02', inicio: '2026-07-02T10:00:00' }); // já enviado
+  s.upsertAgendaItem({ ...baseAg, id_agendamento: 3, elegivel: 0, motivo: 'desmarcado' }); // inelegível
+  s.upsertAgendaItem({ ...baseAg, id_agendamento: 4, nome_medico: 'Dr. Carlos' }); // outro médico
+  s.upsertAgendaItem({ ...baseAg, id_agendamento: 5, inicio: '2026-07-01T11:00:00' }); // falha anterior
+  s.upsertAgendaItem({ ...baseAg, id_agendamento: 6, data_lote: '2026-07-09' }); // fora do período
+  const envioBase = {
+    id_paciente: 9, nome_paciente: 'Ana', telefone: '5534999990001', id_usuario: 7,
+    nome_medico: 'Dra Marina', inicio: '2026-07-02T10:00:00', id_mensagem: 'm',
+    status_envio: 'enviado', ack: 'enviado', data_envio: 'x', data_lote: '2026-07-02', erro: null,
+  };
+  s.registrarEnvio({ ...envioBase, id_agendamento: 2 });
+  s.registrarEnvio({ ...envioBase, id_agendamento: 5, id_mensagem: null, status_envio: 'erro', ack: 'falha', erro: 'boom' });
+
+  const pend = s.agendaPendentes('2026-07-01', '2026-07-05', 'Dra Marina');
+  assert.deepEqual(pend.map((p) => p.id_agendamento), [1]);
+  assert.deepEqual(s.resumoEnvioMassa('2026-07-01', '2026-07-05', 'Dra Marina'), {
+    total: 4, inelegiveis: 1, ja_enviados: 1, falhas_anteriores: 1, pendentes: 1,
+  });
+  s.fechar();
+});
+
 test('medicos: upsert idempotente e listagem ordenada por nome', () => {
   const s = novaStore();
   s.upsertMedico({ id_usuario: 8, nome: 'Dr. Carlos' });
@@ -133,27 +163,6 @@ test('medicos: upsert idempotente e listagem ordenada por nome', () => {
   const meds = s.listarMedicos();
   assert.equal(meds.length, 2);
   assert.deepEqual(meds.map((m) => m.nome), ['Dr. Carlos', 'Dra. Marina Souza']);
-  s.fechar();
-});
-
-test('envio_15dias: ativar/desativar e listar agendas habilitadas', () => {
-  const s = novaStore();
-  s.upsertMedico({ id_usuario: 7, nome: 'Dra. Marina' });
-  s.upsertMedico({ id_usuario: 8, nome: 'Dr. Carlos' });
-  assert.deepEqual(s.medicosEnvio15Dias(), []);
-  assert.equal(s.listarMedicos().find((m) => m.id_usuario === 7).envio_15dias, 0);
-
-  assert.equal(s.definirEnvio15Dias(7, true), true);
-  assert.deepEqual(s.medicosEnvio15Dias(), [7]);
-  assert.equal(s.listarMedicos().find((m) => m.id_usuario === 7).envio_15dias, 1);
-
-  // upsert do nome não reseta a flag
-  s.upsertMedico({ id_usuario: 7, nome: 'Dra. Marina Souza' });
-  assert.deepEqual(s.medicosEnvio15Dias(), [7]);
-
-  s.definirEnvio15Dias(7, false);
-  assert.deepEqual(s.medicosEnvio15Dias(), []);
-  assert.equal(s.definirEnvio15Dias(999, true), false); // agenda inexistente
   s.fechar();
 });
 

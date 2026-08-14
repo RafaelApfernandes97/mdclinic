@@ -67,69 +67,6 @@ test('POST /api/enviar dispara o envio manual (respeita DRY_RUN)', async () => {
   });
 });
 
-test('POST /api/medico-15dias ativa a agenda e retorna a lista atualizada', async () => {
-  const store = criarStore(':memory:');
-  store.upsertMedico({ id_usuario: 7, nome: 'Dra. Marina' });
-  const app = criarServidor({ store, config, executarEnvio: async () => ({}), medx: {} });
-  await comServidor(app, async (port) => {
-    const cookie = await login(port);
-    const res = await fetch(`http://127.0.0.1:${port}/api/medico-15dias`, {
-      method: 'POST', headers: { cookie, 'content-type': 'application/json' },
-      body: JSON.stringify({ idUsuario: 7, ativo: true }),
-    });
-    assert.equal(res.status, 200);
-    const d = await res.json();
-    assert.equal(d.ok, true);
-    assert.equal(d.medicos.find((m) => m.id_usuario === 7).envio_15dias, 1);
-    assert.deepEqual(store.medicosEnvio15Dias(), [7]);
-  });
-});
-
-test('POST /api/medico-15dias 404 para agenda inexistente', async () => {
-  const app = criarServidor({ store: criarStore(':memory:'), config, executarEnvio: async () => ({}), medx: {} });
-  await comServidor(app, async (port) => {
-    const cookie = await login(port);
-    const res = await fetch(`http://127.0.0.1:${port}/api/medico-15dias`, {
-      method: 'POST', headers: { cookie, 'content-type': 'application/json' },
-      body: JSON.stringify({ idUsuario: 999, ativo: true }),
-    });
-    assert.equal(res.status, 404);
-  });
-});
-
-test('POST /api/medico-15dias exige sessão', async () => {
-  const app = criarServidor({ store: criarStore(':memory:'), config, executarEnvio: async () => ({}), medx: {} });
-  await comServidor(app, async (port) => {
-    const res = await fetch(`http://127.0.0.1:${port}/api/medico-15dias`, {
-      method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ idUsuario: 7, ativo: true }),
-    });
-    assert.equal(res.status, 302);
-  });
-});
-
-test('POST /api/disparar-envio chama executarEnvio e devolve o resultado', async () => {
-  let chamou = false;
-  const app = criarServidor({ store: criarStore(':memory:'), config,
-    executarEnvio: async () => { chamou = true; return { enviados: 3, pulados: 1, erros: 0 }; }, medx: {} });
-  await comServidor(app, async (port) => {
-    const cookie = await login(port);
-    const res = await fetch(`http://127.0.0.1:${port}/api/disparar-envio`, { method: 'POST', headers: { cookie } });
-    assert.equal(res.status, 200);
-    const d = await res.json();
-    assert.equal(chamou, true);
-    assert.equal(d.resultado.enviados, 3);
-  });
-});
-
-test('POST /api/disparar-envio exige sessão', async () => {
-  const app = criarServidor({ store: criarStore(':memory:'), config, executarEnvio: async () => ({}), medx: {} });
-  await comServidor(app, async (port) => {
-    const res = await fetch(`http://127.0.0.1:${port}/api/disparar-envio`, { method: 'POST', redirect: 'manual' });
-    assert.equal(res.status, 302);
-  });
-});
-
 test('POST /api/atualizar-ack consulta o Mais Chat e atualiza os status', async () => {
   const store = criarStore(':memory:');
   store.upsertAgendaItem({
@@ -230,6 +167,92 @@ test('/api/dados autenticado retorna resumo + agenda', async () => {
     assert.equal(d.resumo.pulados, 1);
     assert.equal(d.agenda.length, 2);
     assert.equal(d.porMedico[0].total, 2);
+  });
+});
+
+test('/api/dados lista as agendas habilitadas para envio em massa', async () => {
+  const store = storeComAgenda();
+  store.upsertMedico({ id_usuario: 7, nome: 'Dra Marina' });
+  store.upsertMedico({ id_usuario: 8, nome: 'Dr. Carlos' });
+  const cfg = { ...config, envioMassaMedicos: ['dramarina'] };
+  const app = criarServidor({ store, config: cfg, executarEnvio: async () => ({}), medx: {} });
+  await comServidor(app, async (port) => {
+    const cookie = await login(port);
+    const res = await fetch(`http://127.0.0.1:${port}/api/dados?data=2026-06-24`, { headers: { cookie } });
+    const d = await res.json();
+    assert.deepEqual(d.envioMassaMedicos, ['Dra Marina']);
+  });
+});
+
+test('POST /api/envio-massa dispara o job e GET acompanha até concluir', async () => {
+  const store = criarStore(':memory:');
+  const medx = {
+    getAgenda: async () => ([
+      { Id_Agendamento: 1, Id_Paciente: 9, Id_Usuario: 7, SMS: '34999990001', Descricao: 'ANA', Inicio: '2026-07-01T09:00:00', Status: 1 },
+      { Id_Agendamento: 2, Id_Paciente: 10, Id_Usuario: 7, SMS: '34999990002', Descricao: 'BIA', Inicio: '2026-07-01T10:00:00', Status: 0 },
+    ]),
+    getUsuarios: async () => [{ Id_Usuario: 7, Nome: 'Dra Marina' }],
+  };
+  const maischat = { sendTemplate: async () => ({ idMensagem: 'w1' }) };
+  const cfg = {
+    ...config, envioMassaMedicos: ['dramarina'], dryRun: false,
+    templateNome: 't', templateVariaveis: ['nome', 'data', 'hora'], ackPasse1Min: 5, ackPasse2Min: 60,
+  };
+  const app = criarServidor({ store, config: cfg, executarEnvio: async () => ({}), medx, maischat });
+  await comServidor(app, async (port) => {
+    const cookie = await login(port);
+    const res = await fetch(
+      `http://127.0.0.1:${port}/api/envio-massa?inicio=2026-07-01&fim=2026-07-01&medico=${encodeURIComponent('Dra Marina')}`,
+      { method: 'POST', headers: { cookie } });
+    assert.equal(res.status, 200);
+    let { job } = await res.json();
+    assert.equal(job.total, 1); // só ANA é pendente (BIA está desmarcada)
+    assert.equal(job.resumo.inelegiveis, 1);
+    for (let i = 0; i < 100 && job.estado !== 'concluido'; i++) {
+      await new Promise((r) => setTimeout(r, 10));
+      const st = await fetch(`http://127.0.0.1:${port}/api/envio-massa/${job.id}`, { headers: { cookie } });
+      assert.equal(st.status, 200);
+      ({ job } = await st.json());
+    }
+    assert.equal(job.estado, 'concluido');
+    assert.equal(job.enviados, 1);
+    assert.equal(job.itens[0].status, 'enviado');
+    // o status do dia enviado aparece atualizado no painel
+    const dados = await fetch(`http://127.0.0.1:${port}/api/dados?inicio=2026-07-01&fim=2026-07-01`, { headers: { cookie } });
+    const d = await dados.json();
+    assert.equal(d.agenda.find((a) => a.id_agendamento === 1).ack, 'enviado');
+  });
+});
+
+test('POST /api/envio-massa recusa agenda não habilitada (403)', async () => {
+  const cfg = { ...config, envioMassaMedicos: ['dramarina'] };
+  const app = criarServidor({ store: criarStore(':memory:'), config: cfg, executarEnvio: async () => ({}), medx: {}, maischat: {} });
+  await comServidor(app, async (port) => {
+    const cookie = await login(port);
+    const res = await fetch(
+      `http://127.0.0.1:${port}/api/envio-massa?inicio=2026-07-01&fim=2026-07-01&medico=${encodeURIComponent('Dr. Carlos')}`,
+      { method: 'POST', headers: { cookie } });
+    assert.equal(res.status, 403);
+  });
+});
+
+test('POST /api/envio-massa valida período e médico (400)', async () => {
+  const cfg = { ...config, envioMassaMedicos: ['dramarina'] };
+  const app = criarServidor({ store: criarStore(':memory:'), config: cfg, executarEnvio: async () => ({}), medx: {}, maischat: {} });
+  await comServidor(app, async (port) => {
+    const cookie = await login(port);
+    const semMedico = await fetch(`http://127.0.0.1:${port}/api/envio-massa?inicio=2026-07-01&fim=2026-07-01`, { method: 'POST', headers: { cookie } });
+    assert.equal(semMedico.status, 400);
+    const periodoRuim = await fetch(`http://127.0.0.1:${port}/api/envio-massa?inicio=2026-07-02&fim=2026-07-01&medico=x`, { method: 'POST', headers: { cookie } });
+    assert.equal(periodoRuim.status, 400);
+  });
+});
+
+test('POST /api/envio-massa exige sessão', async () => {
+  const app = criarServidor({ store: criarStore(':memory:'), config, executarEnvio: async () => ({}), medx: {}, maischat: {} });
+  await comServidor(app, async (port) => {
+    const res = await fetch(`http://127.0.0.1:${port}/api/envio-massa?inicio=2026-07-01&fim=2026-07-01&medico=x`, { method: 'POST', redirect: 'manual' });
+    assert.equal(res.status, 302);
   });
 });
 

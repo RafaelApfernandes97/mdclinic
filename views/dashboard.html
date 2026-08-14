@@ -50,8 +50,8 @@
   .card.ativa{border-color:var(--orange-500);box-shadow:0 0 0 2px var(--orange-50)}
   .card .n{font-size:1.5rem;font-weight:700} .card .l{font-size:.78rem;color:var(--gray-600)}
   /* duas colunas em uma linha: lista à esquerda, gráfico à direita */
-  .split{display:grid;grid-template-columns:1.4fr 1fr;gap:1.2rem;align-items:start}
-  @media(max-width:900px){.split{grid-template-columns:1fr}}
+  .split{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:1.2rem;align-items:start}
+  @media(max-width:900px){.split{grid-template-columns:minmax(0,1fr)}}
   .box{background:var(--white);border:1px solid var(--gray-100);border-radius:var(--radius-md);
     padding:1rem;box-shadow:var(--shadow-100);margin-bottom:1.2rem}
   .col-grafico{position:sticky;top:1.5rem}
@@ -62,6 +62,7 @@
   .medico-hd .badge{background:var(--orange-50);color:var(--orange-500);font-weight:600;
     font-size:.75rem;padding:.15rem .55rem;border-radius:9999px}
   table{width:100%;border-collapse:collapse;font-size:.86rem}
+  .tab-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
   th,td{text-align:left;padding:.45rem .5rem;border-bottom:1px solid var(--gray-100)}
   th{color:var(--gray-600);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em}
   tr.inelegivel{opacity:.6}
@@ -73,18 +74,6 @@
   .chip-warn{background:var(--yellow-100);color:#8a6d00}
   .chip-gray{background:var(--gray-100);color:var(--gray-600)}
   .toast.ok{background:var(--green-50);color:var(--green-500)}
-  .painel15{background:var(--white);border:1px solid var(--gray-100);border-radius:var(--radius-md);
-    padding:.3rem .9rem;box-shadow:var(--shadow-100);margin-bottom:1rem}
-  .painel15>summary{cursor:pointer;font-weight:600;font-size:.9rem;color:var(--gray-800);
-    padding:.5rem 0;list-style:none;user-select:none}
-  .painel15>summary::-webkit-details-marker{display:none}
-  .painel15>summary::before{content:'⚙  '}
-  .painel15-body{padding:.4rem 0 .6rem}
-  .painel15 .hint{font-size:.8rem;color:var(--gray-600);margin:.2rem 0 .8rem}
-  .lista15{display:flex;flex-wrap:wrap;gap:.45rem .6rem;margin-bottom:.9rem}
-  .lista15 label{display:inline-flex;align-items:center;gap:.4rem;font-size:.85rem;color:var(--gray-800);
-    background:var(--gray-100);border-radius:9999px;padding:.25rem .75rem;cursor:pointer}
-  .lista15 input{accent-color:var(--orange-500);cursor:pointer}
   .vazio{color:var(--gray-600);text-align:center;padding:2rem}
   td.acao,th.acao{width:44px;text-align:center;padding-left:.25rem}
   .enviar{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;
@@ -95,6 +84,45 @@
      a altura máxima é calculada em JS (ajustarScroll) conforme a janela */
   #agendas.uma .tab-wrap{overflow-y:auto}
   #agendas.uma thead th{position:sticky;top:0;background:var(--white);z-index:1}
+  .periodo{display:inline-flex;align-items:center;gap:.35rem;color:var(--gray-600);font-size:.78rem}
+  .periodo input[type=date]{max-width:150px}
+  .fonte-tabs{display:flex;align-items:center;gap:.35rem;margin:0 0 1rem}
+  .fonte-tab{font:inherit;font-size:.88rem;font-weight:600;color:var(--gray-600);background:transparent;
+    border:1px solid transparent;border-radius:var(--radius-sm);padding:.45rem .7rem;cursor:pointer}
+  .fonte-tab:hover{background:var(--white);color:var(--gray-800)}
+  .fonte-tab:focus-visible,.enviar:focus-visible{outline:2px solid var(--blue-500);outline-offset:2px}
+  .fonte-tab.ativa{background:var(--white);border-color:var(--gray-200);color:var(--gray-900);box-shadow:var(--shadow-100)}
+  .split.netvacinas{grid-template-columns:minmax(0,1fr)}
+  .split.netvacinas .col-grafico{display:none}
+  #agendas{min-width:0}
+  .origem-hd{display:flex;align-items:baseline;justify-content:space-between;gap:1rem;margin-bottom:.8rem}
+  .origem-hd h2{font-size:1rem;margin:0;font-weight:600}
+  .origem-hd p{margin:0;color:var(--gray-600);font-size:.82rem}
+  /* painel de envio em massa (aparece só para agendas habilitadas) */
+  .box.massa{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+  .massa .titulo{font-weight:600;font-size:.95rem}
+  .massa .dica{color:var(--gray-600);font-size:.8rem;max-width:34rem}
+  .massa .acoes{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+  #massa-enviar{background:var(--orange-500)}
+  /* modal de acompanhamento do envio em massa */
+  .modal-overlay{position:fixed;inset:0;background:rgba(48,60,74,.55);display:flex;
+    align-items:center;justify-content:center;padding:1.5rem;z-index:50}
+  .modal{background:var(--white);border-radius:var(--radius-md);box-shadow:var(--shadow-200);
+    max-width:760px;width:100%;max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
+  .mod-hd{padding:1rem 1.2rem;border-bottom:1px solid var(--gray-100)}
+  .mod-hd h2{margin:0;font-size:1rem;font-weight:600}
+  .mod-hd p{margin:.15rem 0 0;color:var(--gray-600);font-size:.82rem}
+  .mod-corpo{padding:1rem 1.2rem;overflow-y:auto}
+  .mod-ft{padding:.9rem 1.2rem;border-top:1px solid var(--gray-100);display:flex;justify-content:flex-end}
+  .mod-resumo{display:flex;gap:.9rem;flex-wrap:wrap;font-size:.8rem;color:var(--gray-600);margin-bottom:.6rem}
+  .progresso{height:8px;background:var(--gray-100);border-radius:9999px;overflow:hidden;margin-bottom:.8rem}
+  .progresso .barra{height:100%;background:var(--green-500);width:0;transition:width .3s ease}
+  .banner{border-radius:var(--radius-sm);padding:.6rem .9rem;font-size:.88rem;font-weight:600;margin-bottom:.8rem}
+  .banner.ok{background:var(--green-50);color:var(--green-500)}
+  .banner.erro{background:var(--red-100);color:var(--red-700)}
+  .banner.info{background:var(--blue-50);color:var(--blue-500)}
+  [hidden]{display:none!important}
+  @media(max-width:700px){.periodo{width:100%;justify-content:space-between}.periodo input[type=date]{max-width:calc(50% - 1.5rem)}}
 </style></head><body>
 <header>
   <div class="brand">
@@ -105,22 +133,38 @@
     <span class="relogio" title="Hora atual do servidor (fuso de Brasília)">
       <span class="hora" id="relogio">--:--:--</span><span class="tz">servidor · Brasília</span>
     </span>
-    <input type="date" id="data">
+    <label class="periodo" for="data">De
+      <input type="date" id="data" aria-label="Data inicial">
+      até
+      <input type="date" id="data-fim" aria-label="Data final">
+    </label>
     <select id="medico" title="Filtrar por médico"><option value="">Todos os médicos</option></select>
-    <button class="primary" id="atualizar">Atualizar agenda</button>
+    <button class="primary" id="atualizar">Atualizar agendas</button>
     <a class="logout" href="/logout">sair</a>
   </div>
 </header>
 <div class="toast" id="toast"></div>
-<details class="painel15" id="painel15">
-  <summary>Confirmação 15 dias · ativar por agenda</summary>
-  <div class="painel15-body">
-    <p class="hint">Agendas marcadas enviam confirmações dos próximos 15 dias (dias úteis). As demais enviam apenas o próximo dia útil.</p>
-    <div class="lista15" id="lista15"></div>
-    <button class="primary" id="disparar15">Enviar próximos 15 dias agora</button>
-  </div>
-</details>
+<!-- NetVacinas oculto até liberarmos em produção: remova o "hidden" para reativar as abas -->
+<div class="fonte-tabs" role="tablist" aria-label="Fonte da agenda" hidden>
+  <button class="fonte-tab ativa" id="fonte-medx" role="tab" aria-selected="true" data-fonte="medx">MedX</button>
+  <button class="fonte-tab" id="fonte-netvacinas" role="tab" aria-selected="false" data-fonte="netvacinas">NetVacinas</button>
+</div>
 <div class="cards" id="cards"></div>
+<div class="box massa" id="massa-box" hidden>
+  <div>
+    <div class="titulo">Envio em massa — <span id="massa-medico"></span></div>
+    <div class="dica">Envia a confirmação para todos os agendamentos <strong>pendentes</strong> do período.
+      Agendamentos com qualquer outro status (enviado, entregue, lido, falha, desmarcado…) são pulados.</div>
+  </div>
+  <div class="acoes">
+    <label class="periodo" for="massa-inicio">De
+      <input type="date" id="massa-inicio" aria-label="Data inicial do envio em massa">
+      até
+      <input type="date" id="massa-fim" aria-label="Data final do envio em massa">
+    </label>
+    <button class="primary" id="massa-enviar">Enviar</button>
+  </div>
+</div>
 <div class="split">
   <div id="agendas"></div>
   <div class="box col-grafico">
@@ -128,10 +172,20 @@
     <div class="chart-wrap"><canvas id="grafico"></canvas></div>
   </div>
 </div>
+<div class="modal-overlay" id="massa-modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="massa-modal-titulo">
+    <div class="mod-hd">
+      <h2 id="massa-modal-titulo">Acompanhamento do envio em massa</h2>
+      <p id="massa-modal-sub"></p>
+    </div>
+    <div class="mod-corpo" id="massa-modal-corpo"></div>
+    <div class="mod-ft"><button class="primary" id="massa-fechar">Fechar</button></div>
+  </div>
+</div>
 <script>
 const esc=(s)=>String(s??'').replace(/[&<>"']/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const hora=(iso)=> iso? String(iso).split('T')[1]?.slice(0,5) ?? '' : '';
-let chart, ultimo=null, statusFiltro='total';
+let chart, ultimo=null, statusFiltro='total', fonteAtual='medx';
 // [chave, rótulo, predicado da linha] — define os cards e o filtro de status
 const CARDS=[
   ['total','Total na agenda',()=>true],
@@ -177,15 +231,35 @@ function render(d){
   desenhar();
 }
 
+function selecionarFonte(fonte){
+  fonteAtual=fonte;
+  statusFiltro='total';
+  const netvacinas=fonte==='netvacinas';
+  document.getElementById('medico').hidden=netvacinas;
+  document.querySelector('.split').classList.toggle('netvacinas',netvacinas);
+  document.querySelectorAll('.fonte-tab').forEach((botao)=>{
+    const ativa=botao.dataset.fonte===fonte;
+    botao.classList.toggle('ativa',ativa);
+    botao.setAttribute('aria-selected',String(ativa));
+  });
+  desenhar();
+}
+
 async function carregarMedicos(){
   try{
     const r=await fetch('/api/medicos');
-    if(r.ok){ const d=await r.json(); medicosCache=d.medicos||[]; preencherSelect(medicosCache); renderLista15(); }
+    if(r.ok){ const d=await r.json(); preencherSelect(d.medicos||[]); }
   }catch(e){ /* mantém o que houver no seletor */ }
 }
 
 function desenhar(){
   const d=ultimo; if(!d) return;
+  atualizarMassaBox();
+  if(fonteAtual==='netvacinas') return desenharNetVacinas(d);
+  desenharMedx(d);
+}
+
+function desenharMedx(d){
   const medSel=document.getElementById('medico').value;
   // base = filtrada por médico (os cards refletem esse recorte)
   const base = medSel ? d.agenda.filter((r)=>r.nome_medico===medSel) : d.agenda;
@@ -197,6 +271,7 @@ function desenhar(){
 
   // ---- lista (esquerda): filtro de médico + filtro de status (card ativo) ----
   const linhas = base.filter(predicado(statusFiltro));
+  const mostraData=d.inicio!==d.fim;
   const grupos={};
   for(const r of linhas){ (grupos[r.nome_medico]??=[]).push(r); }
   const nomes=Object.keys(grupos);
@@ -212,17 +287,19 @@ function desenhar(){
     cont.innerHTML=nomes.map((med)=>{
       const ls=grupos[med].map((r)=>{
         const [txt,cls]=statusInfo(r);
-        const botao = r.elegivel===1
+        // só pendentes (e falhas, para reenvio) mostram o botão — já enviados não recebem de novo
+        const botao = r.elegivel===1 && r.status_envio!=='enviado'
           ? `<button class="enviar" title="Envio manual" aria-label="Envio manual" data-id="${r.id_agendamento}" data-nome="${esc(r.nome_paciente)}">${ICON_AVIAO}</button>`
           : '';
         return `<tr class="${r.elegivel===0?'inelegivel':''}">
           <td class="acao">${botao}</td>
+          ${mostraData?`<td>${esc(dataDia(String(r.inicio).slice(0,10)))}</td>`:''}
           <td>${esc(hora(r.inicio))}</td><td>${esc(r.nome_paciente)}</td>
           <td>${esc(r.telefone)}</td><td><span class="chip ${cls}">${esc(txt)}</span></td></tr>`;
       }).join('');
       return `<div class="box"><div class="medico-hd"><h2>${esc(med)}</h2>
         <span class="badge">${grupos[med].length} agendamento(s)</span></div>
-        <div class="tab-wrap"><table><thead><tr><th class="acao"></th><th>Hora</th><th>Paciente</th><th>Telefone</th><th>Status</th></tr></thead>
+        <div class="tab-wrap"><table><thead><tr><th class="acao"></th>${mostraData?'<th>Data</th>':''}<th>Hora</th><th>Paciente</th><th>Telefone</th><th>Status</th></tr></thead>
         <tbody>${ls}</tbody></table></div></div>`;
     }).join('');
   }
@@ -238,6 +315,59 @@ function desenhar(){
       y:{beginAtZero:true,ticks:{color:'#496280',precision:0},grid:{color:'#EBEEF3'}}}}});
 
   ajustarScroll();
+}
+
+function dataDia(dia){
+  return new Intl.DateTimeFormat('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'})
+    .format(new Date(String(dia)+'T12:00:00'));
+}
+
+function desenharNetVacinas(d){
+  const net=d.netvacinas||{habilitado:false,resumo:{},agenda:[]};
+  const base=net.agenda||[];
+  const cards=document.getElementById('cards');
+  const cont=document.getElementById('agendas');
+  cont.classList.remove('uma');
+  if(chart){chart.destroy();chart=null;}
+
+  if(!net.habilitado){
+    cards.innerHTML='';
+    cont.innerHTML='<div class="box vazio">NetVacinas ainda não está configurada. Defina NETVACINAS_TOKEN no servidor e atualize as agendas.</div>';
+    return;
+  }
+
+  cards.innerHTML=CARDS.map(([k,l,pred])=>
+    `<div class="card ${k===statusFiltro?'ativa':''}" data-k="${k}">
+       <div class="n">${base.filter(pred).length}</div><div class="l">${esc(l)}</div></div>`).join('');
+  const linhas=base.filter(predicado(statusFiltro));
+  if(!base.length){
+    cont.innerHTML='<div class="box vazio">Sem agendamentos NetVacinas neste período.</div>';
+    return;
+  }
+  if(!linhas.length){
+    cont.innerHTML='<div class="box vazio">Nenhum agendamento em “'+esc(rotulo(statusFiltro))+'” neste período.</div>';
+    return;
+  }
+
+  const grupos={};
+  for(const item of linhas){(grupos[item.data_lote]??=[]).push(item);}
+  cont.innerHTML=Object.keys(grupos).sort().map((dia)=>{
+    const rows=grupos[dia].map((r)=>{
+      const [txt,cls]=statusInfo(r);
+      const botao=r.elegivel===1 && r.status_envio!=='enviado'
+        ? `<button class="enviar" title="Envio manual" aria-label="Envio manual" data-origem="netvacinas" data-id="${esc(r.chave)}" data-nome="${esc(r.nome_paciente)}">${ICON_AVIAO}</button>`
+        : '';
+      const horario=r.tem_horario===1?hora(r.inicio):'Sem horário';
+      return `<tr class="${r.elegivel===0?'inelegivel':''}">
+        <td class="acao">${botao}</td><td>${esc(horario)}</td><td>${esc(r.nome_paciente)}</td>
+        <td>${esc(r.telefone)}</td><td>${esc(r.vacina||'Vacina não informada')}</td>
+        <td><span class="chip ${cls}">${esc(txt)}</span></td></tr>`;
+    }).join('');
+    return `<div class="box"><div class="origem-hd"><h2>${esc(dataDia(dia))}</h2>
+      <p>${grupos[dia].length} agendamento(s)</p></div>
+      <div class="tab-wrap"><table><thead><tr><th class="acao"></th><th>Hora</th><th>Paciente</th>
+      <th>Telefone</th><th>Vacina</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  }).join('');
 }
 
 // limita a altura da lista (1 médico) para a página não precisar de barra de
@@ -260,49 +390,146 @@ function mostrarErro(msg){
   t.textContent=msg; t.classList.remove('ok'); t.style.display='block';
   setTimeout(()=>{t.style.display='none';},4000);
 }
-function mostrarOk(msg){
-  const t=document.getElementById('toast');
-  t.textContent=msg; t.classList.add('ok'); t.style.display='block';
-  setTimeout(()=>{t.style.display='none'; t.classList.remove('ok');},5000);
+function periodoSelecionado(){
+  const inicio=document.getElementById('data').value;
+  const fim=document.getElementById('data-fim').value||inicio;
+  return {inicio,fim};
 }
-// ---- painel "Confirmação 15 dias" (ativação por agenda) ----
-let medicosCache=[];
-function renderLista15(){
-  const cont=document.getElementById('lista15');
-  if(!medicosCache.length){ cont.innerHTML='<span class="hint">Nenhuma agenda carregada.</span>'; return; }
-  cont.innerHTML=medicosCache.map((m)=>
-    `<label><input type="checkbox" data-id="${m.id_usuario}" ${m.envio_15dias?'checked':''}> ${esc(m.nome)}</label>`).join('');
+function queryPeriodo({inicio,fim}){
+  return new URLSearchParams({inicio,fim}).toString();
 }
 
 async function carregar(){
-  const data=document.getElementById('data').value;
-  const r=await fetch('/api/dados?data='+data);
+  const periodo=periodoSelecionado();
+  if(periodo.fim<periodo.inicio){mostrarErro('A data final não pode ser anterior à inicial.');return;}
+  const r=await fetch('/api/dados?'+queryPeriodo(periodo));
   if(!r.ok){ mostrarErro('Falha ao carregar os dados.'); return; }
   render(await r.json());
-  atualizarAckDoDia(data); // ao acessar o dia, atualiza os ACKs em segundo plano
+  atualizarAckDoDia(periodo); // ao acessar o período, atualiza os ACKs em segundo plano
 }
 
-// consulta o Mais Chat para atualizar enviado->entregue->lido das mensagens do dia
-async function atualizarAckDoDia(data){
+// consulta o Mais Chat para atualizar enviado->entregue->lido das mensagens do período
+async function atualizarAckDoDia(periodo){
   try{
-    const r=await fetch('/api/atualizar-ack?data='+encodeURIComponent(data),{method:'POST'});
+    const r=await fetch('/api/atualizar-ack?'+queryPeriodo(periodo),{method:'POST'});
     if(!r.ok) return;
     const d=await r.json();
-    // só re-renderiza (preservando filtros) se algum status mudou e ainda é a mesma data
-    if(d.ackAtualizados>0 && document.getElementById('data').value===data) render(d);
+    // só re-renderiza se o usuário ainda estiver olhando o mesmo período
+    const atual=periodoSelecionado();
+    if(d.ackAtualizados>0 && atual.inicio===periodo.inicio && atual.fim===periodo.fim) render(d);
   }catch(e){ /* silencioso: não atrapalha a visualização */ }
 }
 
 async function atualizar(){
   const btn=document.getElementById('atualizar');
-  const data=document.getElementById('data').value;
+  const periodo=periodoSelecionado();
+  if(periodo.fim<periodo.inicio){mostrarErro('A data final não pode ser anterior à inicial.');return;}
   btn.disabled=true; btn.textContent='Atualizando…';
   try{
-    const r=await fetch('/api/atualizar-agenda?data='+data,{method:'POST'});
-    if(!r.ok){ mostrarErro('Não foi possível atualizar a agenda no MedX.'); return; }
-    render(await r.json());
-  } finally { btn.disabled=false; btn.textContent='Atualizar agenda'; }
+    const r=await fetch('/api/atualizar-agenda?'+queryPeriodo(periodo),{method:'POST'});
+    if(!r.ok){ mostrarErro('Não foi possível atualizar as agendas.'); return; }
+    const d=await r.json();
+    render(d);
+    // NetVacinas oculto por enquanto: não exibe o erro dele para o usuário
+    const abasVisiveis=!document.querySelector('.fonte-tabs').hidden;
+    if(abasVisiveis && d.netvacinasErro) mostrarErro(d.netvacinasErro);
+  } finally { btn.disabled=false; btn.textContent='Atualizar agendas'; }
 }
+
+// ---- envio em massa ----
+let massaJobId=null, massaTimer=null;
+function dataBR(iso){const [y,m,d]=String(iso).split('-');return `${d}/${m}/${y}`;}
+function atualizarMassaBox(){
+  const box=document.getElementById('massa-box');
+  const medSel=document.getElementById('medico').value;
+  const habilitados=(ultimo&&ultimo.envioMassaMedicos)||[];
+  const mostrar=fonteAtual==='medx'&&!!medSel&&habilitados.includes(medSel);
+  box.hidden=!mostrar;
+  if(!mostrar) return;
+  document.getElementById('massa-medico').textContent=medSel;
+  const periodo=periodoSelecionado();
+  const mi=document.getElementById('massa-inicio'), mf=document.getElementById('massa-fim');
+  if(!mi.value) mi.value=periodo.inicio;
+  if(!mf.value) mf.value=periodo.fim||periodo.inicio;
+}
+async function iniciarEnvioMassa(){
+  const medico=document.getElementById('medico').value;
+  const inicio=document.getElementById('massa-inicio').value;
+  const fim=document.getElementById('massa-fim').value||inicio;
+  if(!inicio){mostrarErro('Informe a data inicial do envio em massa.');return;}
+  if(fim<inicio){mostrarErro('A data final não pode ser anterior à inicial.');return;}
+  if(!confirm('Enviar confirmação em massa para a agenda de '+medico+' de '+dataBR(inicio)+' até '+dataBR(fim)+'?\nApenas agendamentos pendentes receberão mensagem.')) return;
+  const btn=document.getElementById('massa-enviar');
+  btn.disabled=true; btn.textContent='Iniciando…';
+  try{
+    const qs=new URLSearchParams({inicio,fim,medico}).toString();
+    const r=await fetch('/api/envio-massa?'+qs,{method:'POST'});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok){mostrarErro(d.erro||'Não foi possível iniciar o envio em massa.');return;}
+    abrirModalMassa(d.job);
+  }catch(e){mostrarErro('Não foi possível iniciar o envio em massa.');}
+  finally{btn.disabled=false; btn.textContent='Enviar';}
+}
+function abrirModalMassa(job){
+  massaJobId=job.id;
+  document.getElementById('massa-modal').hidden=false;
+  renderModalMassa(job);
+  if(job.estado==='executando') massaTimer=setInterval(pollMassa,1500);
+}
+async function pollMassa(){
+  try{
+    const r=await fetch('/api/envio-massa/'+encodeURIComponent(massaJobId));
+    if(!r.ok) return;
+    const d=await r.json();
+    renderModalMassa(d.job);
+    if(d.job.estado!=='executando'&&massaTimer){clearInterval(massaTimer);massaTimer=null;}
+  }catch(e){ /* tenta de novo no próximo tick */ }
+}
+function chipMassa(st){
+  return {aguardando:['Aguardando','chip-gray'],enviando:['Enviando…','chip-info'],
+    enviado:['Enviado','chip-accent'],simulado:['Simulado','chip-warn'],
+    erro:['Erro','chip-error']}[st]||[st,'chip-gray'];
+}
+function renderModalMassa(job){
+  document.getElementById('massa-modal-sub').textContent=
+    job.medico+' — '+dataBR(job.inicio)+(job.fim!==job.inicio?' até '+dataBR(job.fim):'');
+  const proc=job.enviados+job.erros+job.simulados;
+  const pct=job.total?Math.round(proc/job.total*100):100;
+  let banner='';
+  if(job.estado==='concluido'){
+    if(!job.total) banner='<div class="banner info">Nenhum agendamento pendente neste período — nada foi enviado.</div>';
+    else if(job.erros) banner='<div class="banner erro">Envio concluído com '+job.erros+' falha(s). Verifique os itens abaixo.</div>';
+    else if(job.dryRun) banner='<div class="banner info">DRY_RUN ativo: '+job.simulados+' envio(s) apenas simulados (nada foi enviado).</div>';
+    else banner='<div class="banner ok">Envio concluído: todas as '+job.enviados+' mensagens foram enviadas com sucesso.</div>';
+  }
+  const res=job.resumo||{};
+  const pulados=[];
+  if(res.ja_enviados) pulados.push(res.ja_enviados+' já enviado(s)');
+  if(res.falhas_anteriores) pulados.push(res.falhas_anteriores+' com falha anterior');
+  if(res.inelegiveis) pulados.push(res.inelegiveis+' inelegível(is)');
+  const linhas=(job.itens||[]).map((it)=>{
+    const [txt,cls]=chipMassa(it.status);
+    return `<tr><td>${esc(dataBR(String(it.inicio||'').slice(0,10)))}</td><td>${esc(hora(it.inicio))}</td>
+      <td>${esc(it.nome_paciente)}</td><td>${esc(it.telefone)}</td>
+      <td><span class="chip ${cls}" title="${esc(it.erro||'')}">${esc(txt)}</span></td></tr>`;
+  }).join('');
+  document.getElementById('massa-modal-corpo').innerHTML=
+    banner+
+    '<div class="mod-resumo"><span><strong>'+proc+'</strong> de <strong>'+job.total+'</strong> processados</span>'+
+    '<span>'+job.enviados+' enviado(s)</span><span>'+job.erros+' erro(s)</span>'+
+    (job.simulados?'<span>'+job.simulados+' simulado(s)</span>':'')+
+    (pulados.length?'<span>Pulados: '+esc(pulados.join(', '))+'</span>':'')+'</div>'+
+    '<div class="progresso"><div class="barra" style="width:'+pct+'%"></div></div>'+
+    (linhas?'<div class="tab-wrap"><table><thead><tr><th>Data</th><th>Hora</th><th>Paciente</th><th>Telefone</th><th>Status</th></tr></thead><tbody>'+linhas+'</tbody></table></div>':'');
+}
+function fecharModalMassa(){
+  if(massaTimer){clearInterval(massaTimer);massaTimer=null;}
+  document.getElementById('massa-modal').hidden=true;
+  massaJobId=null;
+  carregar(); // reflete os novos status na lista principal
+}
+document.getElementById('massa-enviar').addEventListener('click',iniciarEnvioMassa);
+document.getElementById('massa-fechar').addEventListener('click',fecharModalMassa);
 
 // ---- relógio do servidor (fuso de Brasília) ----
 // mostra a hora do SERVIDOR, não a do navegador: sincroniza o epoch via
@@ -328,7 +555,17 @@ setInterval(sincronizarRelogio,60000);
 
 const hoje=new Date().toISOString().slice(0,10);
 document.getElementById('data').value=hoje;
-document.getElementById('data').addEventListener('change',carregar);
+document.getElementById('data-fim').value=hoje;
+document.getElementById('data').addEventListener('change',()=>{
+  const inicio=document.getElementById('data'), fim=document.getElementById('data-fim');
+  if(fim.value<inicio.value) fim.value=inicio.value;
+  carregar();
+});
+document.getElementById('data-fim').addEventListener('change',()=>{
+  const inicio=document.getElementById('data'), fim=document.getElementById('data-fim');
+  if(fim.value<inicio.value) inicio.value=fim.value;
+  carregar();
+});
 document.getElementById('medico').addEventListener('change',desenhar);
 window.addEventListener('resize',ajustarScroll);
 document.getElementById('cards').addEventListener('click',(e)=>{
@@ -339,45 +576,22 @@ document.getElementById('cards').addEventListener('click',(e)=>{
   desenhar();
 });
 document.getElementById('atualizar').addEventListener('click',atualizar);
+document.querySelector('.fonte-tabs').addEventListener('click',(e)=>{
+  const botao=e.target.closest('.fonte-tab'); if(!botao) return;
+  selecionarFonte(botao.dataset.fonte);
+});
 document.getElementById('agendas').addEventListener('click',async (e)=>{
   const b=e.target.closest('.enviar'); if(!b) return;
-  const id=b.dataset.id, nome=b.dataset.nome||'';
+  const id=b.dataset.id, nome=b.dataset.nome||'', origem=b.dataset.origem||'medx';
   if(!confirm('Enviar confirmação para '+nome+'?')) return;
   b.disabled=true;
   try{
-    const r=await fetch('/api/enviar?id='+encodeURIComponent(id),{method:'POST'});
-    if(r.status!==200){ mostrarErro('Não foi possível enviar a mensagem.'); return; }
-    const d=await r.json();
+    const r=await fetch('/api/enviar?origem='+encodeURIComponent(origem)+'&id='+encodeURIComponent(id),{method:'POST'});
+    const d=await r.json().catch(()=>({}));
+    if(r.status!==200){ mostrarErro(d.erro||'Não foi possível enviar a mensagem.'); return; }
     if(d.dryRun){ mostrarErro('DRY_RUN ativo: envio simulado (nada foi enviado).'); return; }
     carregar(); // recarrega para refletir o novo status
   } finally { b.disabled=false; }
-});
-// ativa/desativa o envio de 15 dias de uma agenda
-document.getElementById('lista15').addEventListener('change',async (e)=>{
-  const cb=e.target.closest('input[type=checkbox]'); if(!cb) return;
-  cb.disabled=true;
-  try{
-    const r=await fetch('/api/medico-15dias',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({idUsuario:Number(cb.dataset.id),ativo:cb.checked})});
-    if(!r.ok){ mostrarErro('Não foi possível atualizar a agenda.'); cb.checked=!cb.checked; return; }
-    const d=await r.json(); medicosCache=d.medicos||medicosCache;
-  }catch(err){ mostrarErro('Falha de rede ao salvar.'); cb.checked=!cb.checked; }
-  finally{ cb.disabled=false; }
-});
-// disparo manual do envio (base + janela 15d das agendas ativas)
-document.getElementById('disparar15').addEventListener('click',async ()=>{
-  if(!confirm('Disparar envio agora? (próximo dia útil + 15 dias das agendas ativas)')) return;
-  const btn=document.getElementById('disparar15');
-  btn.disabled=true; btn.textContent='Enviando…';
-  try{
-    const r=await fetch('/api/disparar-envio',{method:'POST'});
-    const d=await r.json().catch(()=>({}));
-    if(!r.ok){ mostrarErro(d.erro||'Falha ao disparar o envio.'); return; }
-    const rz=d.resultado||{};
-    mostrarOk(`Disparo concluído: ${rz.enviados??0} enviados, ${rz.pulados??0} pulados, ${rz.erros??0} erros`+(rz.dryRun?' (DRY_RUN)':'')+'.');
-    carregar();
-  } catch(err){ mostrarErro('Falha de rede no disparo.'); }
-  finally { btn.disabled=false; btn.textContent='Enviar próximos 15 dias agora'; }
 });
 carregarMedicos();
 carregar();

@@ -1,23 +1,15 @@
-import { proximoDiaUtilISO, somaDiasISO, agoraISO } from './datas.js';
+import { proximoDiaUtilISO, agoraISO } from './datas.js';
 import { ehElegivel, montarEnvio } from './agendamentos.js';
 import { mapaMedicos, gravarSnapshot } from './agendaSnapshot.js';
 import { resolverTemplate, montarVariaveisTemplate } from './templates.js';
 
-const JANELA_15_DIAS_PADRAO = 15;
-
 export async function executarJobEnvio({ medx, maischat, store, config, agora = new Date() }) {
-  // Base: próximo dia útil (seg-qui => D+1; sexta => segunda). Todas as agendas recebem
-  // o envio da base. Agendas com "envio 15 dias" ativo recebem também os dias seguintes,
-  // até `base + (janela-1)`. Os demais dias caem no envio diário quando forem a base.
+  // Base: próximo dia útil (seg-qui => D+1; sexta => segunda).
   const base = proximoDiaUtilISO(agora);
-  const janelaDias = config.janelaConfirmacaoDias ?? JANELA_15_DIAS_PADRAO;
-  const habilitados = new Set(store.medicosEnvio15Dias());
-  const usaJanela = habilitados.size > 0;
-  const fim = usaJanela ? somaDiasISO(base, janelaDias - 1) : base;
-  console.log(`[job] envio base=${base}` + (usaJanela ? ` + janela ${janelaDias}d até ${fim} (${habilitados.size} agenda(s))` : ''));
+  console.log(`[job] envio base=${base}`);
 
   const [agenda, usuarios] = await Promise.all([
-    medx.getAgenda(base, fim), medx.getUsuarios(),
+    medx.getAgenda(base, base), medx.getUsuarios(),
   ]);
   const mapa = mapaMedicos(usuarios, config.medicoCampoNome);
 
@@ -32,9 +24,8 @@ export async function executarJobEnvio({ medx, maischat, store, config, agora = 
 
   for (const item of agenda) {
     const dia = String(item.Inicio ?? '').split('T')[0];
-    // dias além da base só entram para agendas com envio de 15 dias ativado.
-    const noEscopo = dia === base || habilitados.has(item.Id_Usuario);
-    if (!noEscopo) continue;
+    // Defesa adicional: mesmo se a API trouxer um período maior, só o próximo dia útil entra.
+    if (dia !== base) continue;
     if (!ehElegivel(item)) { pulados++; continue; }
     if (store.jaEnviado(item.Id_Agendamento)) { pulados++; continue; }
     if (config.dryRun) { simulados++; continue; }

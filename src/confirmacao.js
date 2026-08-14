@@ -2,8 +2,7 @@
 // do template do WhatsApp). O bot só conhece o TELEFONE do paciente — não o ID do
 // agendamento. Aqui localizamos o agendamento no MedX pelo telefone, na janela
 // hoje..hoje+janelaDias, escolhemos o mais próximo no tempo e aplicamos CONFIRMADO.
-// A janela cobre o envio D+1 (inclusive sexta -> segunda, pulando o fim de semana)
-// e o envio antecipado de 15 dias (JANELA_CONFIRMACAO_DIAS).
+// A janela cobre o lembrete D+1, inclusive sexta -> segunda, pulando o fim de semana.
 
 import { normalizarTelefone, chaveTelefone, ehDesmarcado } from './agendamentos.js';
 import { hojeISO, somaDiasISO, agoraLocalISO } from './datas.js';
@@ -52,8 +51,8 @@ export function selecionarMaisProximo(agenda, telefone, agoraLocal) {
 
 // Confirma o agendamento do paciente a partir do telefone.
 // Janela de busca: hoje até hoje+janelaDias (fuso BR). Escolhe o mais próximo no tempo.
-// janelaDias vem de JANELA_CONFIRMACAO_DIAS (default 15) — mesma janela do envio 15 dias.
-export async function confirmarPorTelefone({ medx, telefone, agora = new Date(), janelaDias = 15 }) {
+// janelaDias vem de JANELA_CONFIRMACAO_DIAS (default 4).
+export async function confirmarPorTelefone({ medx, telefone, agora = new Date(), janelaDias = 4 }) {
   const alvo = normalizarTelefone(telefone);
   if (!alvo) return { success: false, status: 400, erro: 'telefone inválido' };
 

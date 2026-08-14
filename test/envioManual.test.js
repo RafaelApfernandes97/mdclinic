@@ -64,6 +64,28 @@ test('enviarManual com DRY_RUN=true só simula (não envia, não registra)', asy
   assert.equal(store.jaEnviado(1), false);
 });
 
+test('enviarManual recusa reenvio de agendamento já enviado — só pendentes (409)', async () => {
+  const store = storeComItem();
+  let chamou = false;
+  const maischat = { sendTemplate: async () => { chamou = true; return { idMensagem: 'w1' }; } };
+  await enviarManual({ maischat, store, config: cfg(), idAgendamento: 1 });
+  chamou = false;
+  const r = await enviarManual({ maischat, store, config: cfg(), idAgendamento: 1 });
+  assert.equal(r.ok, false);
+  assert.equal(r.status, 409);
+  assert.equal(chamou, false);
+});
+
+test('enviarManual permite reenviar após falha (falha não é "enviado")', async () => {
+  const store = storeComItem();
+  const maischat = { sendTemplate: async () => { throw new Error('boom'); } };
+  await enviarManual({ maischat, store, config: cfg(), idAgendamento: 1 });
+  maischat.sendTemplate = async () => ({ idMensagem: 'w2' });
+  const r = await enviarManual({ maischat, store, config: cfg(), idAgendamento: 1 });
+  assert.equal(r.ok, true);
+  assert.equal(store.jaEnviado(1), true);
+});
+
 test('enviarManual recusa não elegível (400)', async () => {
   const store = storeComItem({ id_agendamento: 2, elegivel: 0, motivo: 'sem_telefone', telefone: null });
   const maischat = { sendTemplate: async () => ({ idMensagem: 'x' }) };

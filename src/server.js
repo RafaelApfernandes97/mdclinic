@@ -7,7 +7,7 @@ import { confirmarPorTelefone } from './confirmacao.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PUBLIC = join(__dirname, '..', 'public');
 
-export function criarServidor({ store, config, executarEnvio, medx, maischat }) {
+export function criarServidor({ store, config, executarEnvio, medx, netvacinas = null, maischat }) {
   const app = express();
   app.set('trust proxy', 1); // EasyPanel termina TLS num proxy reverso
 
@@ -26,7 +26,7 @@ export function criarServidor({ store, config, executarEnvio, medx, maischat }) 
   // Webhook público chamado pelo bot quando o paciente clica em "Confirmar".
   // Sem autenticação (por decisão de produto). O bot só conhece o telefone do paciente:
   // localizamos o agendamento na janela hoje..hoje+JANELA_CONFIRMACAO_DIAS (cobre o
-  // envio D+1 — inclusive sexta -> segunda — e o envio 15 dias) e gravamos CONFIRMADO.
+  // lembrete D+1 — inclusive sexta -> segunda) e gravamos CONFIRMADO.
   app.post('/api/confirmacao', express.json(), async (req, res) => {
     const corpo = req.body ?? {};
     const telefone = typeof corpo.telefone === 'string' ? corpo.telefone.trim() : '';
@@ -49,6 +49,6 @@ export function criarServidor({ store, config, executarEnvio, medx, maischat }) 
   });
 
   app.use(express.static(PUBLIC));
-  app.use('/', montarDashboard({ store, config, medx, maischat, executarEnvio }));
+  app.use('/', montarDashboard({ store, config, medx, netvacinas, maischat, executarEnvio }));
   return app;
 }

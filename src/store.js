@@ -43,10 +43,43 @@ CREATE TABLE IF NOT EXISTS agenda_itens (
   capturado_em   TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_agenda_lote ON agenda_itens(data_lote);
+CREATE TABLE IF NOT EXISTS agenda_netvacinas_itens (
+  chave           TEXT PRIMARY KEY,
+  id_externo      TEXT,
+  tipo            TEXT,
+  data_lote       TEXT,
+  inicio          TEXT,
+  fim             TEXT,
+  tem_horario     INTEGER,
+  id_paciente     TEXT,
+  nome_paciente   TEXT,
+  telefone        TEXT,
+  vacina          TEXT,
+  elegivel        INTEGER,
+  motivo          TEXT,
+  capturado_em    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_agenda_netvacinas_lote ON agenda_netvacinas_itens(data_lote);
+CREATE TABLE IF NOT EXISTS envios_netvacinas (
+  chave              TEXT PRIMARY KEY,
+  id_externo         TEXT,
+  id_paciente        TEXT,
+  nome_paciente      TEXT,
+  telefone           TEXT,
+  vacina             TEXT,
+  inicio             TEXT,
+  id_mensagem        TEXT,
+  status_envio       TEXT,
+  ack                TEXT,
+  ack_atualizado_em  TEXT,
+  data_envio         TEXT,
+  data_lote          TEXT,
+  erro               TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_envios_netvacinas_lote ON envios_netvacinas(data_lote);
 CREATE TABLE IF NOT EXISTS medicos (
   id_usuario   INTEGER PRIMARY KEY,
-  nome         TEXT,
-  envio_15dias INTEGER DEFAULT 0
+  nome         TEXT
 );
 `;
 
@@ -55,12 +88,6 @@ export function criarStore(caminho) {
   const db = new DatabaseSync(caminho);
   db.exec('PRAGMA journal_mode = WAL');
   db.exec(SCHEMA);
-
-  // Migração idempotente: adiciona colunas novas em bancos já existentes.
-  const colsMedicos = db.prepare(`PRAGMA table_info(medicos)`).all();
-  if (!colsMedicos.some((c) => c.name === 'envio_15dias')) {
-    db.exec(`ALTER TABLE medicos ADD COLUMN envio_15dias INTEGER DEFAULT 0`);
-  }
 
   const upsertEnvio = db.prepare(`
     INSERT INTO envios (id_agendamento, id_paciente, nome_paciente, telefone, id_usuario,
@@ -86,6 +113,31 @@ export function criarStore(caminho) {
       descricao=excluded.descricao, capturado_em=excluded.capturado_em
   `);
 
+  const upsertAgendaNetVacinas = db.prepare(`
+    INSERT INTO agenda_netvacinas_itens (chave, id_externo, tipo, data_lote, inicio, fim,
+      tem_horario, id_paciente, nome_paciente, telefone, vacina, elegivel, motivo, capturado_em)
+    VALUES (@chave, @id_externo, @tipo, @data_lote, @inicio, @fim,
+      @tem_horario, @id_paciente, @nome_paciente, @telefone, @vacina, @elegivel, @motivo, @capturado_em)
+    ON CONFLICT(chave) DO UPDATE SET
+      id_externo=excluded.id_externo, tipo=excluded.tipo, data_lote=excluded.data_lote,
+      inicio=excluded.inicio, fim=excluded.fim, tem_horario=excluded.tem_horario,
+      id_paciente=excluded.id_paciente, nome_paciente=excluded.nome_paciente,
+      telefone=excluded.telefone, vacina=excluded.vacina, elegivel=excluded.elegivel,
+      motivo=excluded.motivo, capturado_em=excluded.capturado_em
+  `);
+
+  const upsertEnvioNetVacinas = db.prepare(`
+    INSERT INTO envios_netvacinas (chave, id_externo, id_paciente, nome_paciente, telefone,
+      vacina, inicio, id_mensagem, status_envio, ack, ack_atualizado_em,
+      data_envio, data_lote, erro)
+    VALUES (@chave, @id_externo, @id_paciente, @nome_paciente, @telefone,
+      @vacina, @inicio, @id_mensagem, @status_envio, @ack, @ack_atualizado_em,
+      @data_envio, @data_lote, @erro)
+    ON CONFLICT(chave) DO UPDATE SET
+      id_mensagem=excluded.id_mensagem, status_envio=excluded.status_envio,
+      ack=excluded.ack, data_envio=excluded.data_envio, erro=excluded.erro
+  `);
+
   const upsertMedicoStmt = db.prepare(`
     INSERT INTO medicos (id_usuario, nome) VALUES (@id_usuario, @nome)
     ON CONFLICT(id_usuario) DO UPDATE SET nome=excluded.nome
@@ -96,18 +148,7 @@ export function criarStore(caminho) {
       upsertMedicoStmt.run(m);
     },
     listarMedicos() {
-      return db.prepare(`SELECT id_usuario, nome, envio_15dias FROM medicos ORDER BY nome`).all();
-    },
-    // ativa/desativa o envio de 15 dias para uma agenda (médico). Retorna true se atualizou.
-    definirEnvio15Dias(idUsuario, ativo) {
-      const r = db.prepare(`UPDATE medicos SET envio_15dias=? WHERE id_usuario=?`)
-        .run(ativo ? 1 : 0, idUsuario);
-      return r.changes > 0;
-    },
-    // ids das agendas com envio de 15 dias ativado.
-    medicosEnvio15Dias() {
-      return db.prepare(`SELECT id_usuario FROM medicos WHERE envio_15dias=1`)
-        .all().map((m) => m.id_usuario);
+      return db.prepare(`SELECT id_usuario, nome FROM medicos ORDER BY nome`).all();
     },
     jaEnviado(id) {
       const r = db.prepare(
@@ -121,11 +162,11 @@ export function criarStore(caminho) {
       db.prepare(`UPDATE envios SET ack=?, ack_atualizado_em=? WHERE id_agendamento=?`)
         .run(ack, ackEm, id);
     },
-    mensagensNaoLidas(dataLote) {
+    mensagensNaoLidas(dataInicio, dataFim = dataInicio) {
       return db.prepare(`
         SELECT id_agendamento, id_mensagem, telefone FROM envios
-        WHERE data_lote=? AND status_envio='enviado' AND ack != 'lido'
-          AND id_mensagem IS NOT NULL`).all(dataLote);
+        WHERE data_lote>=? AND data_lote<=? AND status_envio='enviado' AND ack != 'lido'
+          AND id_mensagem IS NOT NULL`).all(dataInicio, dataFim);
     },
     criarLote(l) {
       db.prepare(`
@@ -176,15 +217,15 @@ export function criarStore(caminho) {
     upsertAgendaItem(item) {
       upsertAgenda.run(item);
     },
-    agendaCompleta(dataLote) {
+    agendaCompleta(dataInicio, dataFim = dataInicio) {
       return db.prepare(`
         SELECT a.id_agendamento, a.nome_medico, a.inicio, a.nome_paciente, a.telefone,
                a.elegivel, a.motivo,
                e.status_envio, e.ack, e.data_envio, e.ack_atualizado_em
         FROM agenda_itens a
         LEFT JOIN envios e ON e.id_agendamento = a.id_agendamento
-        WHERE a.data_lote = ?
-        ORDER BY a.nome_medico, a.inicio`).all(dataLote);
+        WHERE a.data_lote >= ? AND a.data_lote <= ?
+        ORDER BY a.nome_medico, a.inicio`).all(dataInicio, dataFim);
     },
     agendaItem(id) {
       return db.prepare(`
@@ -192,7 +233,7 @@ export function criarStore(caminho) {
                nome_paciente, telefone, inicio, elegivel, motivo
         FROM agenda_itens WHERE id_agendamento = ?`).get(id) ?? null;
     },
-    resumoAgenda(dataLote) {
+    resumoAgenda(dataInicio, dataFim = dataInicio) {
       const r = db.prepare(`
         SELECT
           COUNT(*) AS total,
@@ -204,17 +245,105 @@ export function criarStore(caminho) {
           SUM(e.ack='falha') AS falha
         FROM agenda_itens a
         LEFT JOIN envios e ON e.id_agendamento = a.id_agendamento
-        WHERE a.data_lote = ?`).get(dataLote);
+        WHERE a.data_lote >= ? AND a.data_lote <= ?`).get(dataInicio, dataFim);
       return {
         total: r.total ?? 0, elegiveis: r.elegiveis ?? 0, pulados: r.pulados ?? 0,
         enviado: r.enviado ?? 0, entregue: r.entregue ?? 0,
         lido: r.lido ?? 0, falha: r.falha ?? 0,
       };
     },
-    porMedicoAgenda(dataLote) {
+    // Agendamentos "Pendente" de uma agenda no período: elegíveis e SEM envio
+    // registrado (nem sucesso nem falha). É o universo do envio em massa.
+    agendaPendentes(dataInicio, dataFim, nomeMedico) {
+      return db.prepare(`
+        SELECT a.id_agendamento, a.data_lote, a.id_usuario, a.nome_medico, a.id_paciente,
+               a.nome_paciente, a.telefone, a.inicio
+        FROM agenda_itens a
+        LEFT JOIN envios e ON e.id_agendamento = a.id_agendamento
+        WHERE a.data_lote >= ? AND a.data_lote <= ? AND a.nome_medico = ?
+          AND a.elegivel = 1 AND e.id_agendamento IS NULL
+        ORDER BY a.inicio`).all(dataInicio, dataFim, nomeMedico);
+    },
+    // Recorte do período de uma agenda para o relatório do envio em massa:
+    // quantos serão enviados (pendentes) e por que os demais são pulados.
+    resumoEnvioMassa(dataInicio, dataFim, nomeMedico) {
+      const r = db.prepare(`
+        SELECT
+          COUNT(*) AS total,
+          SUM(a.elegivel=0) AS inelegiveis,
+          SUM(a.elegivel=1 AND e.status_envio='enviado') AS ja_enviados,
+          SUM(a.elegivel=1 AND e.status_envio='erro') AS falhas_anteriores,
+          SUM(a.elegivel=1 AND e.id_agendamento IS NULL) AS pendentes
+        FROM agenda_itens a
+        LEFT JOIN envios e ON e.id_agendamento = a.id_agendamento
+        WHERE a.data_lote >= ? AND a.data_lote <= ? AND a.nome_medico = ?`)
+        .get(dataInicio, dataFim, nomeMedico);
+      return {
+        total: r.total ?? 0, inelegiveis: r.inelegiveis ?? 0,
+        ja_enviados: r.ja_enviados ?? 0, falhas_anteriores: r.falhas_anteriores ?? 0,
+        pendentes: r.pendentes ?? 0,
+      };
+    },
+    porMedicoAgenda(dataInicio, dataFim = dataInicio) {
       return db.prepare(`
         SELECT nome_medico, COUNT(*) AS total FROM agenda_itens
-        WHERE data_lote=? GROUP BY nome_medico ORDER BY total DESC`).all(dataLote);
+        WHERE data_lote>=? AND data_lote<=? GROUP BY nome_medico ORDER BY total DESC`).all(dataInicio, dataFim);
+    },
+    upsertAgendaNetVacinasItem(item) {
+      upsertAgendaNetVacinas.run(item);
+    },
+    agendaNetVacinasCompleta(dataInicio, dataFim = dataInicio) {
+      return db.prepare(`
+        SELECT a.chave, a.id_externo, a.tipo, a.data_lote, a.inicio, a.fim, a.tem_horario,
+               a.nome_paciente, a.telefone, a.vacina, a.elegivel, a.motivo,
+               e.status_envio, e.ack, e.data_envio, e.ack_atualizado_em
+        FROM agenda_netvacinas_itens a
+        LEFT JOIN envios_netvacinas e ON e.chave = a.chave
+        WHERE a.data_lote >= ? AND a.data_lote <= ?
+        ORDER BY a.data_lote, a.inicio, a.nome_paciente`).all(dataInicio, dataFim);
+    },
+    agendaNetVacinasItem(chave) {
+      return db.prepare(`
+        SELECT chave, id_externo, tipo, data_lote, inicio, fim, tem_horario, id_paciente,
+               nome_paciente, telefone, vacina, elegivel, motivo
+        FROM agenda_netvacinas_itens WHERE chave=?`).get(chave) ?? null;
+    },
+    jaEnviadoNetVacinas(chave) {
+      const r = db.prepare(
+        `SELECT 1 FROM envios_netvacinas WHERE chave=? AND status_envio='enviado'`).get(chave);
+      return !!r;
+    },
+    registrarEnvioNetVacinas(reg) {
+      upsertEnvioNetVacinas.run({ ack_atualizado_em: null, ...reg });
+    },
+    mensagensNetVacinasNaoLidas(dataInicio, dataFim = dataInicio) {
+      return db.prepare(`
+        SELECT chave, id_mensagem, telefone FROM envios_netvacinas
+        WHERE data_lote>=? AND data_lote<=? AND status_envio='enviado' AND ack != 'lido'
+          AND id_mensagem IS NOT NULL`).all(dataInicio, dataFim);
+    },
+    atualizarAckNetVacinas(chave, ack, ackEm) {
+      db.prepare(`UPDATE envios_netvacinas SET ack=?, ack_atualizado_em=? WHERE chave=?`)
+        .run(ack, ackEm, chave);
+    },
+    resumoAgendaNetVacinas(dataInicio, dataFim = dataInicio) {
+      const r = db.prepare(`
+        SELECT
+          COUNT(*) AS total,
+          SUM(a.elegivel=1) AS elegiveis,
+          SUM(a.elegivel=0) AS pulados,
+          SUM(e.ack='enviado') AS enviado,
+          SUM(e.ack='entregue') AS entregue,
+          SUM(e.ack='lido') AS lido,
+          SUM(e.ack='falha') AS falha
+        FROM agenda_netvacinas_itens a
+        LEFT JOIN envios_netvacinas e ON e.chave = a.chave
+        WHERE a.data_lote >= ? AND a.data_lote <= ?`).get(dataInicio, dataFim);
+      return {
+        total: r.total ?? 0, elegiveis: r.elegiveis ?? 0, pulados: r.pulados ?? 0,
+        enviado: r.enviado ?? 0, entregue: r.entregue ?? 0,
+        lido: r.lido ?? 0, falha: r.falha ?? 0,
+      };
     },
     fechar() { db.close(); },
   };

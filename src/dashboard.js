@@ -4,8 +4,11 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { timingSafeEqual } from 'node:crypto';
 import { snapshotAgenda, mapaMedicos } from './agendaSnapshot.js';
-import { enviarManual } from './envioManual.js';
+import { snapshotAgendaNetVacinas } from './netvacinasSnapshot.js';
+import { enviarManual, enviarManualNetVacinas } from './envioManual.js';
+import { criarEnvioMassa } from './envioMassa.js';
 import { atualizarAcks } from './ackUpdater.js';
+import { slugMedico } from './templates.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VIEWS = join(__dirname, '..', 'views');
@@ -22,7 +25,46 @@ function exigirSessao(req, res, next) {
   return res.redirect('/login');
 }
 
-export function montarDashboard({ store, config, medx, maischat, executarEnvio }) {
+function hojeISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function periodoDaRequisicao(query) {
+  const inicio = String(query.inicio ?? query.data ?? hojeISO());
+  const fim = String(query.fim ?? inicio);
+  const formatoValido = /^\d{4}-\d{2}-\d{2}$/;
+  if (!formatoValido.test(inicio) || !formatoValido.test(fim) || inicio > fim) return null;
+  return { inicio, fim };
+}
+
+// Nomes (como aparecem no seletor) das agendas com envio em massa habilitado.
+function medicosComEnvioMassa(store, config) {
+  const slugs = config.envioMassaMedicos ?? [];
+  return store.listarMedicos()
+    .filter((m) => slugs.includes(slugMedico(m.nome)))
+    .map((m) => m.nome);
+}
+
+function dadosDoDashboard({ store, config, netvacinas, inicio, fim }) {
+  return {
+    // "data" continua no contrato para clientes antigos; inicio/fim são o novo intervalo.
+    data: inicio,
+    inicio,
+    fim,
+    resumo: store.resumoAgenda(inicio, fim),
+    porMedico: store.porMedicoAgenda(inicio, fim),
+    agenda: store.agendaCompleta(inicio, fim),
+    medicos: store.listarMedicos(),
+    envioMassaMedicos: medicosComEnvioMassa(store, config),
+    netvacinas: {
+      habilitado: Boolean(netvacinas),
+      resumo: store.resumoAgendaNetVacinas(inicio, fim),
+      agenda: store.agendaNetVacinasCompleta(inicio, fim),
+    },
+  };
+}
+
+export function montarDashboard({ store, config, medx, netvacinas = null, maischat }) {
   const router = express.Router();
   router.use(express.urlencoded({ extended: false }));
   router.use(express.json());
@@ -57,29 +99,14 @@ export function montarDashboard({ store, config, medx, maischat, executarEnvio }
     res.json({ medicos: store.listarMedicos() });
   });
 
-  // ativa/desativa o envio de 15 dias para uma agenda (médico).
-  router.post('/api/medico-15dias', exigirSessao, (req, res) => {
-    const idUsuario = Number(req.body?.idUsuario);
-    if (!Number.isInteger(idUsuario)) return res.status(400).json({ erro: 'idUsuario inválido' });
-    const ativo = req.body?.ativo === true || req.body?.ativo === 'true';
-    const ok = store.definirEnvio15Dias(idUsuario, ativo);
-    if (!ok) return res.status(404).json({ erro: 'Agenda não encontrada' });
-    res.json({ ok: true, idUsuario, ativo, medicos: store.listarMedicos() });
-  });
-
-  // disparo manual do envio (mesma régua do cron: base + janela 15d das agendas ativas).
-  router.post('/api/disparar-envio', exigirSessao, async (req, res) => {
-    if (!executarEnvio) return res.status(503).json({ erro: 'Envio indisponível' });
-    try {
-      const resultado = await executarEnvio();
-      res.json({ ok: true, resultado });
-    } catch (e) {
-      console.error('[dashboard] falha no disparo manual:', e.message);
-      res.status(500).json({ erro: 'Falha ao disparar o envio' });
-    }
-  });
-
   router.post('/api/enviar', exigirSessao, async (req, res) => {
+    if (req.query.origem === 'netvacinas') {
+      const chave = String(req.query.id ?? '').trim();
+      if (!chave) return res.status(400).json({ erro: 'id NetVacinas inválido' });
+      const r = await enviarManualNetVacinas({ maischat, store, config, chave });
+      if (!r.ok) return res.status(r.status ?? 500).json({ erro: r.erro });
+      return res.json(r);
+    }
     const id = Number(req.query.id);
     if (!Number.isFinite(id)) return res.status(400).json({ erro: 'id inválido' });
     const r = await enviarManual({ maischat, store, config, idAgendamento: id });
@@ -88,23 +115,18 @@ export function montarDashboard({ store, config, medx, maischat, executarEnvio }
   });
 
   router.post('/api/atualizar-ack', exigirSessao, async (req, res) => {
-    const data = req.query.data || new Date().toISOString().slice(0, 10);
+    const periodo = periodoDaRequisicao(req.query);
+    if (!periodo) return res.status(400).json({ erro: 'Período inválido' });
+    const { inicio, fim } = periodo;
     let ackAtualizados = 0;
     try {
-      const r = await atualizarAcks({ maischat, store, dataLote: data });
+      const r = await atualizarAcks({ maischat, store, dataLote: inicio, dataFim: fim });
       ackAtualizados = r.atualizados;
-      if (config.debug) console.log(`[ack] refresh sob demanda data=${data}: ${r.atualizados}/${r.pendentes} atualizados`);
+      if (config.debug) console.log(`[ack] refresh sob demanda ${inicio}..${fim}: ${r.atualizados}/${r.pendentes} atualizados`);
     } catch (e) {
       console.error('[ack] falha no refresh sob demanda:', e.message);
     }
-    res.json({
-      data,
-      resumo: store.resumoAgenda(data),
-      porMedico: store.porMedicoAgenda(data),
-      agenda: store.agendaCompleta(data),
-      medicos: store.listarMedicos(),
-      ackAtualizados,
-    });
+    res.json({ ...dadosDoDashboard({ store, config, netvacinas, inicio, fim }), ackAtualizados });
   });
 
   // relógio do servidor — o front formata este epoch no fuso de Brasília para
@@ -114,31 +136,57 @@ export function montarDashboard({ store, config, medx, maischat, executarEnvio }
   });
 
   router.get('/api/dados', exigirSessao, (req, res) => {
-    const data = req.query.data || new Date().toISOString().slice(0, 10);
-    res.json({
-      data,
-      resumo: store.resumoAgenda(data),
-      porMedico: store.porMedicoAgenda(data),
-      agenda: store.agendaCompleta(data),
-      medicos: store.listarMedicos(),
-    });
+    const periodo = periodoDaRequisicao(req.query);
+    if (!periodo) return res.status(400).json({ erro: 'Período inválido' });
+    res.json(dadosDoDashboard({ store, config, netvacinas, ...periodo }));
   });
 
   router.post('/api/atualizar-agenda', exigirSessao, async (req, res) => {
-    const data = req.query.data || new Date().toISOString().slice(0, 10);
+    const periodo = periodoDaRequisicao(req.query);
+    if (!periodo) return res.status(400).json({ erro: 'Período inválido' });
+    const { inicio, fim } = periodo;
     try {
-      await snapshotAgenda({ medx, store, config, dataLote: data });
+      await snapshotAgenda({ medx, store, config, dataLote: inicio, dataFim: fim });
     } catch (e) {
       console.error('[dashboard] falha ao atualizar agenda:', e.message);
       return res.status(502).json({ erro: 'Não foi possível atualizar a agenda no MedX.' });
     }
-    res.json({
-      data,
-      resumo: store.resumoAgenda(data),
-      porMedico: store.porMedicoAgenda(data),
-      agenda: store.agendaCompleta(data),
-      medicos: store.listarMedicos(),
-    });
+    let netvacinasErro = null;
+    if (netvacinas) {
+      try {
+        await snapshotAgendaNetVacinas({ netvacinas, store, inicio, fim });
+      } catch (e) {
+        console.error('[dashboard] falha ao atualizar agenda NetVacinas:', e.message);
+        netvacinasErro = 'Não foi possível atualizar a agenda na NetVacinas.';
+      }
+    }
+    res.json({ ...dadosDoDashboard({ store, config, netvacinas, inicio, fim }), netvacinasErro });
+  });
+
+  // Envio em massa: dispara a campanha de uma agenda no período e devolve o job
+  // para a tela de acompanhamento. Só agendas habilitadas em ENVIO_MASSA_MEDICOS.
+  const envioMassa = criarEnvioMassa({ medx, maischat, store, config });
+  router.post('/api/envio-massa', exigirSessao, async (req, res) => {
+    const periodo = periodoDaRequisicao(req.query);
+    if (!periodo) return res.status(400).json({ erro: 'Período inválido' });
+    const medico = String(req.query.medico ?? '').trim();
+    if (!medico) return res.status(400).json({ erro: 'Médico obrigatório' });
+    if (!(config.envioMassaMedicos ?? []).includes(slugMedico(medico))) {
+      return res.status(403).json({ erro: 'Envio em massa não habilitado para esta agenda' });
+    }
+    try {
+      const r = await envioMassa.iniciar({ nomeMedico: medico, ...periodo });
+      if (!r.ok) return res.status(r.status ?? 500).json({ erro: r.erro });
+      res.json({ job: r.job });
+    } catch (e) {
+      console.error('[envio-massa] falha ao iniciar:', e.message);
+      res.status(502).json({ erro: 'Não foi possível atualizar a agenda no MedX para iniciar o envio.' });
+    }
+  });
+  router.get('/api/envio-massa/:id', exigirSessao, (req, res) => {
+    const job = envioMassa.obter(req.params.id);
+    if (!job) return res.status(404).json({ erro: 'Envio em massa não encontrado' });
+    res.json({ job });
   });
   return router;
 }

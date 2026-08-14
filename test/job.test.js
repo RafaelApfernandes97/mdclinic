@@ -49,11 +49,11 @@ test('quinta envia para sexta (D+1 em dia útil)', async () => {
   assert.equal(r.dataLote, '2026-07-10'); // sexta
 });
 
-test('envio 15 dias por agenda: só agenda ativa recebe os dias futuros', async () => {
+test('envio automático consulta e envia somente o próximo dia útil', async () => {
   const agenda = [
     // base = segunda 2026-07-13
     { Id_Agendamento: 1, Id_Paciente: 9, Id_Usuario: 7, SMS: '34999998888', Descricao: 'JOAO', Inicio: '2026-07-13T10:00:00' },
-    // +7 dias (dentro da janela de 15)
+  // Um item futuro não pode ser enviado antecipadamente, mesmo se vier indevidamente na resposta.
     { Id_Agendamento: 2, Id_Paciente: 9, Id_Usuario: 7, SMS: '34999998888', Descricao: 'MARIA', Inicio: '2026-07-20T10:00:00' },
   ];
   const enviados = [];
@@ -65,20 +65,13 @@ test('envio 15 dias por agenda: só agenda ativa recebe os dias futuros', async 
   const store = criarStore(':memory:');
   const config = { templateVariaveis: ['nome', 'medico', 'data', 'hora'], ackPasse1Min: 5, ackPasse2Min: 60, medicoCampoNome: 'Nome' };
   const agora = new Date('2026-07-10T12:00:00Z'); // sexta -> base = segunda 2026-07-13
-
-  // sem 15 dias ativo: só a base (item 1); item 2 (futuro) fica para o D-1 dele
-  let r = await executarJobEnvio({ medx, maischat, store, config, agora });
+  let intervalo;
+  medx.getAgenda = async (inicio, fim) => { intervalo = { inicio, fim }; return agenda; };
+  const r = await executarJobEnvio({ medx, maischat, store, config, agora });
   assert.equal(r.enviados, 1);
+  assert.deepEqual(intervalo, { inicio: '2026-07-13', fim: '2026-07-13' });
   assert.equal(store.jaEnviado(1), true);
   assert.equal(store.jaEnviado(2), false);
-
-  // ativa 15 dias para a agenda 7 e dispara de novo
-  store.definirEnvio15Dias(7, true);
-  r = await executarJobEnvio({ medx, maischat, store, config, agora });
-  assert.equal(store.jaEnviado(2), true);          // futuro agora enviado
-  assert.equal(r.enviados, 1);                      // item 1 caiu no dedup
-  const ag = store.agendaCompleta('2026-07-20');    // agrupado sob o próprio dia
-  assert.ok(ag.find((x) => x.id_agendamento === 2));
   store.fechar();
 });
 
