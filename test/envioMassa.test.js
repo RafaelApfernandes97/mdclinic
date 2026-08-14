@@ -72,6 +72,25 @@ test('envio em massa: envia só os pendentes da agenda e atualiza o status de to
   store.fechar();
 });
 
+test('envio em massa: agenda da Dra Marina usa o template de campanha com data e hora', async () => {
+  const store = criarStore(':memory:');
+  const enviados = [];
+  const maischat = { sendTemplate: async (p) => { enviados.push(p); return { idMensagem: 'w' + enviados.length }; } };
+  const medx = {
+    getAgenda: async () => ([
+      { Id_Agendamento: 1, Id_Paciente: 11, Id_Usuario: 7, SMS: '34999990001', Descricao: 'ANA', Inicio: '2026-07-01T09:00:00', Status: 1 },
+    ]),
+    getUsuarios: async () => ([{ Id_Usuario: 7, Nome: 'Dra Marina de Deus' }]),
+  };
+  const em = criarEnvioMassa({ medx, maischat, store, config: cfg() });
+  const r = await em.iniciar({ nomeMedico: 'Dra Marina de Deus', inicio: '2026-07-01', fim: '2026-07-01' });
+  await em.aguardar(r.job.id);
+  assert.equal(enviados.length, 1);
+  assert.equal(enviados[0].template, 'confirmacao_dr_marina_7dias');
+  assert.deepEqual(enviados[0].variaveis, ['01/07', '9h']); // {{1}} data, {{2}} horário
+  store.fechar();
+});
+
 test('envio em massa: falha do Mais Chat marca o item como erro e registra a falha', async () => {
   const store = criarStore(':memory:');
   const maischat = {

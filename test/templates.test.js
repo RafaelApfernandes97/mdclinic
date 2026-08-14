@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { slugMedico, resolverTemplate, montarVariaveisTemplate } from '../src/templates.js';
+import { slugMedico, resolverTemplate, resolverTemplateEnvioMassa, montarVariaveisTemplate } from '../src/templates.js';
 
 const config = { templateNome: 'confirmacao_agendamento', templateVariaveis: ['nome', 'dia', 'hora_curta'] };
 
@@ -29,6 +29,21 @@ test('resolverTemplate: demais agendas caem no template padrão (MD Infusion)', 
     templateNome: 'confirmacao_agendamento', ordem: ['nome', 'dia', 'hora_curta'],
   });
   assert.deepEqual(resolverTemplate('Desconhecido', config), {
+    templateNome: 'confirmacao_agendamento', ordem: ['nome', 'dia', 'hora_curta'],
+  });
+});
+
+test('resolverTemplateEnvioMassa: Dra Marina usa o template de campanha (data + hora)', () => {
+  assert.deepEqual(resolverTemplateEnvioMassa('Dra Marina de Deus', config), {
+    templateNome: 'confirmacao_dr_marina_7dias', ordem: ['data_curta', 'hora_h'],
+  });
+});
+
+test('resolverTemplateEnvioMassa: demais agendas usam o mesmo template do envio manual', () => {
+  assert.deepEqual(resolverTemplateEnvioMassa('Dra Livia Araujo', config), {
+    templateNome: 'confirmar_dralivia', ordem: ['saudacao', 'data_curta', 'hora'],
+  });
+  assert.deepEqual(resolverTemplateEnvioMassa('Md Infusion', config), {
     templateNome: 'confirmacao_agendamento', ordem: ['nome', 'dia', 'hora_curta'],
   });
 });

@@ -13,6 +13,12 @@ const TEMPLATES_MEDICOS = new Map([
   ['dramarinadedeus', { nome: 'confirmar_dramarina', variaveis: ['saudacao', 'nome', 'data_curta', 'hora_h'] }],
 ]);
 
+// Templates de campanha do envio em massa, quando a agenda tem um template
+// aprovado na Meta diferente do usado no envio manual/diário.
+const TEMPLATES_ENVIO_MASSA = new Map([
+  ['dramarinadedeus', { nome: 'confirmacao_dr_marina_7dias', variaveis: ['data_curta', 'hora_h'] }],
+]);
+
 // "Dra Livia Araujo" -> "draliviaaraujo" (mesmo formato do login MedX),
 // tolerante a acentos, pontuação e espaços.
 export function slugMedico(nome) {
@@ -27,6 +33,14 @@ export function resolverTemplate(nomeMedico, config) {
   const proprio = TEMPLATES_MEDICOS.get(slugMedico(nomeMedico));
   if (proprio) return { templateNome: proprio.nome, ordem: proprio.variaveis };
   return { templateNome: config.templateNome, ordem: config.templateVariaveis };
+}
+
+// Decide o template do envio em massa: agenda com template de campanha usa o
+// próprio; as demais caem no mesmo template do envio manual/diário.
+export function resolverTemplateEnvioMassa(nomeMedico, config) {
+  const proprio = TEMPLATES_ENVIO_MASSA.get(slugMedico(nomeMedico));
+  if (proprio) return { templateNome: proprio.nome, ordem: proprio.variaveis };
+  return resolverTemplate(nomeMedico, config);
 }
 
 export function montarVariaveisTemplate({ nomePaciente, nomeMedico, inicio, ordem, agora = new Date(), semHorario = false }) {

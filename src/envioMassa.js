@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { agoraISO } from './datas.js';
 import { snapshotAgenda } from './agendaSnapshot.js';
-import { resolverTemplate, montarVariaveisTemplate } from './templates.js';
+import { resolverTemplateEnvioMassa, montarVariaveisTemplate } from './templates.js';
 
 // Envio em massa de uma agenda por período (acionado pelo dashboard).
 // Regra: apenas agendamentos PENDENTES recebem mensagem — elegíveis e sem envio
@@ -23,7 +23,7 @@ export function criarEnvioMassa({ medx, maischat, store, config }) {
         job.simulados++;
         continue;
       }
-      const { templateNome, ordem } = resolverTemplate(item.nome_medico, config);
+      const { templateNome, ordem } = resolverTemplateEnvioMassa(item.nome_medico, config);
       const variaveis = montarVariaveisTemplate({
         nomePaciente: item.nome_paciente, nomeMedico: item.nome_medico,
         inicio: item.inicio, ordem, agora,
