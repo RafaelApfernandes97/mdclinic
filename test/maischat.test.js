@@ -90,6 +90,62 @@ test('sendTemplate não loga debug por padrão (debug=false)', async () => {
   assert.doesNotMatch(linhas.join('\n'), /\[maischat\] sendTemplate/);
 });
 
+const v2Extra = { v2BaseUrl: 'http://mc/v2', v2Token: 'JWT' };
+
+test('sendTemplate cai para a v2 quando a v3 falha (mesmo corpo, URL e Authorization v2)', async () => {
+  const chamadas = [];
+  const fetch = async (u, opts) => {
+    chamadas.push({ u, opts });
+    if (u.includes('/v3/')) return { ok: false, status: 502, json: async () => ({}), text: async () => 'bad gateway' };
+    return ok({ status: true, data: { messages: [{ id: 'wamid.V2' }] } });
+  };
+  const r = await mc(fetch, v2Extra).sendTemplate({ telefone: '5511999', variaveis: ['Joao'] });
+  assert.equal(r.idMensagem, 'wamid.V2');
+  assert.equal(chamadas.length, 2);
+  assert.equal(chamadas[0].u, 'http://mc/v3/template/send/wppCloudAPI');
+  assert.equal(chamadas[1].u, 'http://mc/v2/msg/template/wppCloudAPI');
+  assert.equal(chamadas[1].opts.headers.Authorization, 'Bearer JWT');
+  const corpoV2 = JSON.parse(chamadas[1].opts.body);
+  assert.equal(corpoV2.type, 'apiTemplate');
+  assert.equal(corpoV2.destination, '5511999');
+  assert.equal(corpoV2.token, 'META');
+  assert.deepEqual(corpoV2.template.components[0].parameters.map((p) => p.text), ['Joao']);
+});
+
+test('sendTemplate cai para a v2 quando a Meta retorna status:false na v3', async () => {
+  const chamadas = [];
+  const fetch = async (u) => {
+    chamadas.push(u);
+    if (u.includes('/v3/')) return ok({ status: false, message: 'Falha ao enviar mensagem!' });
+    return ok({ status: true, data: { messages: [{ id: 'wamid.V2B' }] } });
+  };
+  const r = await mc(fetch, v2Extra).sendTemplate({ telefone: '55', variaveis: [] });
+  assert.equal(r.idMensagem, 'wamid.V2B');
+  assert.equal(chamadas.length, 2);
+});
+
+test('sendTemplate não usa a v2 quando o envio v3 tem sucesso', async () => {
+  const chamadas = [];
+  const fetch = async (u) => { chamadas.push(u); return ok({ status: true, data: { messages: [{ id: 'wamid.V3' }] } }); };
+  const r = await mc(fetch, v2Extra).sendTemplate({ telefone: '55', variaveis: [] });
+  assert.equal(r.idMensagem, 'wamid.V3');
+  assert.equal(chamadas.length, 1);
+  assert.match(chamadas[0], /\/v3\//);
+});
+
+test('sendTemplate propaga o erro da v3 quando a v2 não está configurada', async () => {
+  const fetch = async () => ({ ok: false, status: 502, json: async () => ({}), text: async () => 'bad gateway' });
+  await assert.rejects(() => mc(fetch).sendTemplate({ telefone: '55', variaveis: [] }), /Falha sendTemplate: 502/);
+});
+
+test('sendTemplate propaga o erro da v2 quando o fallback também falha', async () => {
+  const fetch = async (u) => {
+    if (u.includes('/v3/')) return ok({ status: false, message: 'erro v3' });
+    return ok({ status: false, message: 'erro v2' });
+  };
+  await assert.rejects(() => mc(fetch, v2Extra).sendTemplate({ telefone: '55', variaveis: [] }), /erro v2/);
+});
+
 test('getStatusMensagem busca por destino e casa pelo wppMsgId', async () => {
   let url;
   const fetch = async (u) => {

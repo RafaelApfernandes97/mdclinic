@@ -20,6 +20,14 @@ test('carrega defaults', () => {
   assert.equal(c.port, 5300);
   assert.equal(c.maischatBroker, 'wppCloudAPI');
   assert.equal(c.maischatApiKey, null);
+  assert.equal(c.maischatV2BaseUrl, null);
+  assert.equal(c.maischatV2Token, null);
+});
+
+test('carrega fallback v2 quando MAISCHAT_V2_* definidos', () => {
+  const c = carregarConfig({ ...minimo, MAISCHAT_V2_BASE_URL: 'http://mc/v2', MAISCHAT_V2_TOKEN: 'jwt' });
+  assert.equal(c.maischatV2BaseUrl, 'http://mc/v2');
+  assert.equal(c.maischatV2Token, 'jwt');
 });
 
 test('dryRun: padrão false, true só quando DRY_RUN==="true"', () => {

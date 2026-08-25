@@ -23,6 +23,10 @@ export function carregarConfig(env = process.env) {
     maischatSource: env.MAISCHAT_SOURCE,
     maischatMetaToken: env.MAISCHAT_META_TOKEN,
     maischatApiKey: env.MAISCHAT_API_KEY ?? null,
+    // Fallback v2: usado automaticamente quando o envio pela v3 falha.
+    // Requer URL base e o token (JWT) do tenant; sem ambos, o fallback fica desligado.
+    maischatV2BaseUrl: env.MAISCHAT_V2_BASE_URL ?? null,
+    maischatV2Token: env.MAISCHAT_V2_TOKEN ?? null,
     templateNome: env.MAISCHAT_TEMPLATE_NOME,
     templateVariaveis: (env.MAISCHAT_TEMPLATE_VARIAVEIS ?? 'nome,medico,data,hora')
       .split(',').map((v) => v.trim()).filter(Boolean),

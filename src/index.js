@@ -19,6 +19,7 @@ const maischat = criarMaisChat({
   baseUrl: config.maischatBaseUrl, broker: config.maischatBroker,
   appId: config.maischatAppId, source: config.maischatSource,
   metaToken: config.maischatMetaToken, apiKey: config.maischatApiKey,
+  v2BaseUrl: config.maischatV2BaseUrl, v2Token: config.maischatV2Token,
   templateNome: config.templateNome, templateIdioma: config.templateIdioma,
   debug: config.debug,
 });
