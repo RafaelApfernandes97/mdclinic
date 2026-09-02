@@ -6,16 +6,20 @@ import { resolverTemplateEnvioMassa, montarVariaveisTemplate } from './templates
 // Envio em massa de uma agenda por período (acionado pelo dashboard).
 // Regra: apenas agendamentos PENDENTES recebem mensagem — elegíveis e sem envio
 // registrado. Já enviados, falhas anteriores e inelegíveis são pulados e
-// aparecem no resumo. Cada envio registra o status do próprio dia no painel,
-// então todos os dias enviados de cada paciente ficam atualizados.
-// O job roda em memória: o dashboard acompanha o progresso via polling.
+// aparecem no resumo.
+//
+// IMPORTANTE — fire-and-forget: o envio em massa NÃO grava em `envios` nem cria
+// lotes/ACK. Se gravasse com status "enviado", o job diário (lembrete de 1 dia
+// antes) pularia o agendamento em `jaEnviado()` e a mensagem da véspera não
+// seria enviada. Por isso o massa apenas dispara e acompanha o progresso em
+// memória (o dashboard usa polling); entrega/leitura não são rastreadas e uma
+// nova execução no mesmo período reenvia (sem idempotência persistida).
 export function criarEnvioMassa({ medx, maischat, store, config }) {
   const jobs = new Map();
   const execucoes = new Map(); // id do job -> promise do loop de envio
   let ativo = null;
 
   async function executar(job, agora) {
-    const porDia = new Map(); // dia -> { primeiro, ultimo } para os passes de ACK
     for (const item of job.itens) {
       item.status = 'enviando';
       if (config.dryRun) {
@@ -28,35 +32,19 @@ export function criarEnvioMassa({ medx, maischat, store, config }) {
         nomePaciente: item.nome_paciente, nomeMedico: item.nome_medico,
         inicio: item.inicio, ordem, agora,
       });
-      const ts = agoraISO();
-      const base = {
-        id_agendamento: item.id_agendamento, id_paciente: item.id_paciente,
-        nome_paciente: item.nome_paciente, telefone: item.telefone,
-        id_usuario: item.id_usuario, nome_medico: item.nome_medico, inicio: item.inicio,
-        data_envio: ts, data_lote: item.data_lote,
-      };
       try {
-        const { idMensagem } = await maischat.sendTemplate({
+        await maischat.sendTemplate({
           telefone: item.telefone, variaveis, template: templateNome,
         });
-        store.registrarEnvio({ ...base, id_mensagem: idMensagem, status_envio: 'enviado', ack: 'enviado', erro: null });
         item.status = 'enviado';
         job.enviados++;
-        const reg = porDia.get(item.data_lote);
-        if (reg) reg.ultimo = ts; else porDia.set(item.data_lote, { primeiro: ts, ultimo: ts });
       } catch (e) {
         const erro = String(e.message ?? e);
-        store.registrarEnvio({ ...base, id_mensagem: null, status_envio: 'erro', ack: 'falha', erro });
         item.status = 'erro';
         item.erro = erro;
         job.erros++;
         console.error(`[envio-massa] FALHA: agendamento=${item.id_agendamento} telefone=${item.telefone} erro=${erro}`);
       }
-    }
-    for (const [dia, { primeiro, ultimo }] of porDia) {
-      const p1 = new Date(new Date(ultimo).getTime() + config.ackPasse1Min * 60000).toISOString();
-      const p2 = new Date(new Date(primeiro).getTime() + config.ackPasse2Min * 60000).toISOString();
-      store.criarLote({ data_lote: dia, fim_campanha: ultimo, passe1_em: p1, passe2_em: p2 });
     }
     job.estado = 'concluido';
     job.concluido_em = agoraISO();

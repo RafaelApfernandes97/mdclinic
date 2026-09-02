@@ -217,10 +217,12 @@ test('POST /api/envio-massa dispara o job e GET acompanha até concluir', async 
     assert.equal(job.estado, 'concluido');
     assert.equal(job.enviados, 1);
     assert.equal(job.itens[0].status, 'enviado');
-    // o status do dia enviado aparece atualizado no painel
+    // fire-and-forget: o massa NÃO altera o status "enviado" da agenda, para não
+    // bloquear o lembrete de 1 dia antes (job diário).
+    assert.equal(store.jaEnviado(1), false);
     const dados = await fetch(`http://127.0.0.1:${port}/api/dados?inicio=2026-07-01&fim=2026-07-01`, { headers: { cookie } });
     const d = await dados.json();
-    assert.equal(d.agenda.find((a) => a.id_agendamento === 1).ack, 'enviado');
+    assert.equal(d.agenda.find((a) => a.id_agendamento === 1).ack, null);
   });
 });
 

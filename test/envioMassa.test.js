@@ -11,8 +11,8 @@ const cfg = (over = {}) => ({
   dryRun: false, ...over,
 });
 
-// Agenda MedX com: 2 pendentes da Marina (dias diferentes), 1 desmarcado,
-// 1 de outro médico e 1 da Marina já enviado (registrado antes do job).
+// Agenda MedX com: 3 elegíveis da Marina (ANA, BIA, EVA), 1 desmarcado (CLARA)
+// e 1 de outro médico (DAVI).
 function medxFake() {
   return {
     getAgenda: async () => ([
@@ -29,6 +29,8 @@ function medxFake() {
   };
 }
 
+// Simula um envio já registrado em `envios` (ex.: o lembrete de 1 dia antes ou
+// um envio manual anterior). É o único caminho que grava na tabela `envios`.
 function registrarEnvioPrevio(store, id, extra = {}) {
   store.registrarEnvio({
     id_agendamento: id, id_paciente: 15, nome_paciente: 'EVA', telefone: '5534999990005',
@@ -38,9 +40,9 @@ function registrarEnvioPrevio(store, id, extra = {}) {
   });
 }
 
-test('envio em massa: envia só os pendentes da agenda e atualiza o status de todos os dias', async () => {
+test('envio em massa: dispara os pendentes SEM registrar em `envios` (não bloqueia o lembrete de 1 dia antes)', async () => {
   const store = criarStore(':memory:');
-  registrarEnvioPrevio(store, 5); // EVA já enviada -> não é pendente
+  registrarEnvioPrevio(store, 5); // EVA já enviada (lembrete/prévio) -> não é pendente
   const enviados = [];
   const maischat = { sendTemplate: async (p) => { enviados.push(p); return { idMensagem: 'w' + enviados.length }; } };
   const em = criarEnvioMassa({ medx: medxFake(), maischat, store, config: cfg() });
@@ -58,17 +60,19 @@ test('envio em massa: envia só os pendentes da agenda e atualiza o status de to
   assert.equal(job.erros, 0);
   assert.deepEqual(job.itens.map((i) => i.status), ['enviado', 'enviado']);
   assert.equal(enviados.length, 2);
-  // envios registrados -> o painel mostra "Enviado" em cada dia enviado do período
-  assert.equal(store.jaEnviado(1), true);
-  assert.equal(store.jaEnviado(2), true);
+
+  // REQUISITO CENTRAL: o envio em massa é fire-and-forget e NÃO grava em `envios`.
+  // Assim o job diário (lembrete de 1 dia antes) continua vendo o agendamento
+  // como pendente e a mensagem do dia anterior é enviada normalmente.
+  assert.equal(store.jaEnviado(1), false);
+  assert.equal(store.jaEnviado(2), false);
+  // o status "enviado" da agenda não é alterado pelo massa
   const agenda = store.agendaCompleta('2026-07-01', '2026-07-02');
   const acks = Object.fromEntries(agenda.map((a) => [a.id_agendamento, a.ack]));
-  assert.equal(acks[1], 'enviado');
-  assert.equal(acks[2], 'enviado');
-  assert.equal(acks[3], null); // desmarcada segue sem envio
-  // um lote de ACK por dia enviado
-  const passes = store.passesPendentes('2099-01-01T00:00:00Z');
-  assert.deepEqual(passes.map((p) => p.data_lote).sort(), ['2026-07-01', '2026-07-01', '2026-07-02', '2026-07-02']);
+  assert.equal(acks[1], null);
+  assert.equal(acks[2], null);
+  // sem lotes/ACK: o massa não cria passes de leitura
+  assert.deepEqual(store.passesPendentes('2099-01-01T00:00:00Z'), []);
   store.fechar();
 });
 
@@ -91,7 +95,7 @@ test('envio em massa: agenda da Dra Marina usa o template de campanha com data e
   store.fechar();
 });
 
-test('envio em massa: falha do Mais Chat marca o item como erro e registra a falha', async () => {
+test('envio em massa: falha do Mais Chat marca o item como erro em memória (nada é persistido)', async () => {
   const store = criarStore(':memory:');
   const maischat = {
     sendTemplate: async ({ telefone }) => {
@@ -108,7 +112,9 @@ test('envio em massa: falha do Mais Chat marca o item como erro e registra a fal
   const comErro = job.itens.find((i) => i.status === 'erro');
   assert.equal(comErro.id_agendamento, 1);
   assert.match(comErro.erro, /numero invalido/);
-  assert.equal(store.jaEnviado(1), false); // falha não conta como enviado
+  // fire-and-forget: nem sucesso nem falha são gravados em `envios`
+  assert.equal(store.jaEnviado(1), false);
+  assert.equal(store.jaEnviado(2), false);
   store.fechar();
 });
 
@@ -128,21 +134,39 @@ test('envio em massa: DRY_RUN simula sem chamar o Mais Chat nem registrar', asyn
   store.fechar();
 });
 
-test('envio em massa: sem pendentes conclui direto sem enviar nada', async () => {
+test('envio em massa: sem pendentes (todos já enviados pelo lembrete) conclui sem enviar', async () => {
   const store = criarStore(':memory:');
+  // Simula que ANA, BIA e EVA já receberam o lembrete (registros diretos em `envios`).
+  registrarEnvioPrevio(store, 1);
+  registrarEnvioPrevio(store, 2);
+  registrarEnvioPrevio(store, 5);
   let chamou = false;
   const maischat = { sendTemplate: async () => { chamou = true; return { idMensagem: 'x' }; } };
   const em = criarEnvioMassa({ medx: medxFake(), maischat, store, config: cfg() });
+  const r = await em.iniciar({ nomeMedico: 'Dra Marina', inicio: '2026-07-01', fim: '2026-07-02' });
+  assert.equal(r.ok, true);
+  assert.equal(r.job.total, 0);
+  assert.equal(r.job.estado, 'concluido');
+  assert.equal(r.job.resumo.ja_enviados, 3);
+  assert.equal(chamou, false);
+  store.fechar();
+});
+
+test('envio em massa: fire-and-forget — rodar de novo reenvia (sem idempotência persistida)', async () => {
+  const store = criarStore(':memory:');
+  const enviados = [];
+  const maischat = { sendTemplate: async (p) => { enviados.push(p); return { idMensagem: 'w' + enviados.length }; } };
+  const em = criarEnvioMassa({ medx: medxFake(), maischat, store, config: cfg() });
+
   const r1 = await em.iniciar({ nomeMedico: 'Dra Marina', inicio: '2026-07-01', fim: '2026-07-02' });
   await em.aguardar(r1.job.id);
-  chamou = false;
-  // segunda rodada: todos já enviados -> nada pendente
+  assert.equal(em.obter(r1.job.id).enviados, 3); // ANA, BIA, EVA — nada pré-registrado
+
+  // Como o massa não persiste, uma segunda rodada volta a considerar todos pendentes.
   const r2 = await em.iniciar({ nomeMedico: 'Dra Marina', inicio: '2026-07-01', fim: '2026-07-02' });
-  assert.equal(r2.ok, true);
-  assert.equal(r2.job.total, 0);
-  assert.equal(r2.job.estado, 'concluido');
-  assert.equal(r2.job.resumo.ja_enviados, 3);
-  assert.equal(chamou, false);
+  await em.aguardar(r2.job.id);
+  assert.equal(em.obter(r2.job.id).enviados, 3);
+  assert.equal(enviados.length, 6);
   store.fechar();
 });
 
