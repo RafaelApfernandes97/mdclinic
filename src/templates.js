@@ -11,6 +11,8 @@ const TEMPLATES_MEDICOS = new Map([
   ['draliviaaraujo', { nome: 'confirmar_dralivia', variaveis: ['saudacao', 'data_curta', 'hora'] }],
   ['drvitorganem', { nome: 'confimar_drvitor', variaveis: ['nome', 'dia', 'hora'] }],
   ['dramarinadedeus', { nome: 'confirmar_dramarina', variaveis: ['saudacao', 'nome', 'data_curta', 'hora_h'] }],
+  ['mdexames', { nome: 'confirmar_mdexames', variaveis: ['nome', 'dia', 'hora'] }],
+  ['mdhair', { nome: 'confirmar_mdhair', variaveis: ['nome', 'dia', 'hora'] }],
 ]);
 
 // Templates de campanha do envio em massa, quando a agenda tem um template

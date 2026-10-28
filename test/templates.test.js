@@ -24,6 +24,20 @@ test('resolverTemplate: agendas com template próprio', () => {
   });
 });
 
+test('resolverTemplate: MD Exames e MD Hair (logins do MedX normalizados)', async () => {
+  const { normalizarNomeMedico } = await import('../src/nomes.js');
+  assert.deepEqual(resolverTemplate(normalizarNomeMedico('MD EXAMES'), config), {
+    templateNome: 'confirmar_mdexames', ordem: ['nome', 'dia', 'hora'],
+  });
+  assert.deepEqual(resolverTemplate(normalizarNomeMedico('mdhair'), config), {
+    templateNome: 'confirmar_mdhair', ordem: ['nome', 'dia', 'hora'],
+  });
+  assert.deepEqual(
+    montarVariaveisTemplate({ nomePaciente: 'Adriano', nomeMedico: 'Md Exames', inicio: '2026-10-21T08:10:00', ordem: ['nome', 'dia', 'hora'] }),
+    ['Adriano', 'Quarta-feira 21/10', '08:10'],
+  );
+});
+
 test('resolverTemplate: demais agendas caem no template padrão (MD Infusion)', () => {
   assert.deepEqual(resolverTemplate('Md Infusion', config), {
     templateNome: 'confirmacao_agendamento', ordem: ['nome', 'dia', 'hora_curta'],
