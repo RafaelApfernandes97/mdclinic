@@ -90,7 +90,11 @@ export function normalizarAgendaNetVacinas({ appointments = [], scheduledShots =
       pacientes.forEach((paciente, indice) => itens.push(itemDeAppointment(appointment, null, paciente, indice)));
     }
   }
-  for (const registro of scheduledShots) itens.push(itemDeScheduledShot(registro));
+  // scheduledShots repetem os shots dos appointments (sem horário): só entram os avulsos.
+  const shotsDeAppointment = new Set(appointments.flatMap((a) => (a.shots ?? []).map((s) => String(s.internalId))));
+  for (const registro of scheduledShots) {
+    if (!shotsDeAppointment.has(String(registro.internalId))) itens.push(itemDeScheduledShot(registro));
+  }
 
   const porChave = new Map();
   for (const item of itens) if (item) porChave.set(item.chave, item);

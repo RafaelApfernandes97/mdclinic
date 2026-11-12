@@ -177,3 +177,17 @@ test('criarNetVacinasRest confirma pelo id com Bearer e propaga erro', async () 
   assert.equal(chamadas[0].opts.headers.Authorization, 'Bearer tk');
   await assert.rejects(api.confirmarAgendamento('999'), /404: Não encontrado/);
 });
+
+test('scheduledShot que já é shot de um appointment não duplica na agenda', async () => {
+  const { normalizarAgendaNetVacinas } = await import('../src/netvacinasSnapshot.js');
+  const maria = { internalId: 1, name: 'Maria', whatsappPhoneNumber: '34999998888' };
+  const itens = normalizarAgendaNetVacinas({
+    appointments: [{ internalId: 10, date: '2026-11-16', startTime: '09:30:00', patients: [maria],
+      shots: [{ internalId: 100, vaccine: { name: 'Influenza' }, patient: maria }] }],
+    scheduledShots: [
+      { internalId: 100, date: '2026-11-16', patient: maria, vaccine: { name: 'Influenza' } },
+      { internalId: 200, date: '2026-11-16', patient: maria, vaccine: { name: 'HPV' } },
+    ],
+  });
+  assert.deepEqual(itens.map((i) => i.chave), ['appointment:10:100', 'scheduled-shot:200']);
+});
