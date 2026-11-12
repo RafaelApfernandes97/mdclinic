@@ -88,6 +88,12 @@ export function criarStore(caminho) {
   const db = new DatabaseSync(caminho);
   db.exec('PRAGMA journal_mode = WAL');
   db.exec(SCHEMA);
+  // Migração: bancos criados antes da coluna de confirmação NetVacinas.
+  try {
+    db.exec('ALTER TABLE agenda_netvacinas_itens ADD COLUMN confirmado INTEGER');
+  } catch (e) {
+    if (!/duplicate column/i.test(e.message)) throw e;
+  }
 
   const upsertEnvio = db.prepare(`
     INSERT INTO envios (id_agendamento, id_paciente, nome_paciente, telefone, id_usuario,
@@ -115,15 +121,16 @@ export function criarStore(caminho) {
 
   const upsertAgendaNetVacinas = db.prepare(`
     INSERT INTO agenda_netvacinas_itens (chave, id_externo, tipo, data_lote, inicio, fim,
-      tem_horario, id_paciente, nome_paciente, telefone, vacina, elegivel, motivo, capturado_em)
+      tem_horario, id_paciente, nome_paciente, telefone, vacina, elegivel, motivo, capturado_em, confirmado)
     VALUES (@chave, @id_externo, @tipo, @data_lote, @inicio, @fim,
-      @tem_horario, @id_paciente, @nome_paciente, @telefone, @vacina, @elegivel, @motivo, @capturado_em)
+      @tem_horario, @id_paciente, @nome_paciente, @telefone, @vacina, @elegivel, @motivo, @capturado_em, @confirmado)
     ON CONFLICT(chave) DO UPDATE SET
       id_externo=excluded.id_externo, tipo=excluded.tipo, data_lote=excluded.data_lote,
       inicio=excluded.inicio, fim=excluded.fim, tem_horario=excluded.tem_horario,
       id_paciente=excluded.id_paciente, nome_paciente=excluded.nome_paciente,
       telefone=excluded.telefone, vacina=excluded.vacina, elegivel=excluded.elegivel,
-      motivo=excluded.motivo, capturado_em=excluded.capturado_em
+      motivo=excluded.motivo, capturado_em=excluded.capturado_em,
+      confirmado=COALESCE(excluded.confirmado, confirmado)
   `);
 
   const upsertEnvioNetVacinas = db.prepare(`
@@ -290,12 +297,12 @@ export function criarStore(caminho) {
         WHERE data_lote>=? AND data_lote<=? GROUP BY nome_medico ORDER BY total DESC`).all(dataInicio, dataFim);
     },
     upsertAgendaNetVacinasItem(item) {
-      upsertAgendaNetVacinas.run(item);
+      upsertAgendaNetVacinas.run({ confirmado: null, ...item });
     },
     agendaNetVacinasCompleta(dataInicio, dataFim = dataInicio) {
       return db.prepare(`
         SELECT a.chave, a.id_externo, a.tipo, a.data_lote, a.inicio, a.fim, a.tem_horario,
-               a.nome_paciente, a.telefone, a.vacina, a.elegivel, a.motivo,
+               a.nome_paciente, a.telefone, a.vacina, a.elegivel, a.motivo, a.confirmado,
                e.status_envio, e.ack, e.data_envio, e.ack_atualizado_em
         FROM agenda_netvacinas_itens a
         LEFT JOIN envios_netvacinas e ON e.chave = a.chave
@@ -307,6 +314,10 @@ export function criarStore(caminho) {
         SELECT chave, id_externo, tipo, data_lote, inicio, fim, tem_horario, id_paciente,
                nome_paciente, telefone, vacina, elegivel, motivo
         FROM agenda_netvacinas_itens WHERE chave=?`).get(chave) ?? null;
+    },
+    marcarConfirmadoNetVacinas(idExterno) {
+      db.prepare(`UPDATE agenda_netvacinas_itens SET confirmado=1 WHERE id_externo=? AND tipo='appointment'`)
+        .run(String(idExterno));
     },
     jaEnviadoNetVacinas(chave) {
       const r = db.prepare(

@@ -40,6 +40,7 @@ export function criarServidor({ store, config, executarEnvio, medx, netvacinas =
     if (nv) {
       try {
         await netvacinasRest.confirmarAgendamento(nv.id);
+        store.marcarConfirmadoNetVacinas(nv.id);
         console.log(`[confirmacao] telefone=${telefone} netvacinas=${nv.id} -> CONFIRMADO`);
         return res.json({ success: true, origem: 'netvacinas', idAgendamento: nv.id, statusAplicado: 'CONFIRMADO', inicio: nv.inicio });
       } catch (e) {
@@ -62,6 +63,6 @@ export function criarServidor({ store, config, executarEnvio, medx, netvacinas =
   });
 
   app.use(express.static(PUBLIC));
-  app.use('/', montarDashboard({ store, config, medx, netvacinas, maischat, executarEnvio }));
+  app.use('/', montarDashboard({ store, config, medx, netvacinas, netvacinasRest, maischat, executarEnvio }));
   return app;
 }

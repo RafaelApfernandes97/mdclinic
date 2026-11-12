@@ -109,6 +109,13 @@ test('envio manual NetVacinas usa o template de vacinas com horário e vacina', 
   assert.equal(enviados.length, 1);
   assert.equal(enviados[0].template, 'md_vacinas_kids_confirmacao_agendamento');
   assert.deepEqual(enviados[0].variaveis, ['Ana', '04/01/2026', '09:30', 'HPV']);
+
+  // Segundo envio é bloqueado; com reenviar=true sai de novo.
+  const repetido = await enviarManualNetVacinas({ maischat, store, config, chave: 'scheduled-shot:s1' });
+  assert.equal(repetido.status, 409);
+  const reenvio = await enviarManualNetVacinas({ maischat, store, config, chave: 'scheduled-shot:s1', reenviar: true });
+  assert.equal(reenvio.ok, true);
+  assert.equal(enviados.length, 2);
   assert.equal(store.jaEnviadoNetVacinas('scheduled-shot:s1'), true);
   store.fechar();
 });
@@ -190,4 +197,46 @@ test('scheduledShot que já é shot de um appointment não duplica na agenda', a
     ],
   });
   assert.deepEqual(itens.map((i) => i.chave), ['appointment:10:100', 'scheduled-shot:200']);
+});
+
+test('snapshot marca confirmado pelo status da API REST e preserva quando a API falha', async () => {
+  const { gravarSnapshotNetVacinas } = await import('../src/netvacinasSnapshot.js');
+  const store = criarStore(':memory:');
+  const maria = { internalId: 1, name: 'Maria', whatsappPhoneNumber: '34999998888' };
+  const agenda = { appointments: [{ internalId: 510484, date: '2026-11-12', startTime: '17:30:00', patients: [maria],
+    shots: [{ internalId: 9223389, vaccine: { name: 'Influenza' }, patient: maria }] }] };
+  gravarSnapshotNetVacinas({ store, agenda, statusPorId: new Map([['510484', 'confirmed']]) });
+  assert.equal(store.agendaNetVacinasCompleta('2026-11-12')[0].confirmado, 1);
+  gravarSnapshotNetVacinas({ store, agenda }); // sem status (API REST falhou): mantém
+  assert.equal(store.agendaNetVacinasCompleta('2026-11-12')[0].confirmado, 1);
+  gravarSnapshotNetVacinas({ store, agenda, statusPorId: new Map([['510484', null]]) });
+  assert.equal(store.agendaNetVacinasCompleta('2026-11-12')[0].confirmado, 0);
+  store.marcarConfirmadoNetVacinas(510484);
+  assert.equal(store.agendaNetVacinasCompleta('2026-11-12')[0].confirmado, 1);
+});
+
+test('statusAgendamentos pagina a API REST', async () => {
+  const { criarNetVacinasRest } = await import('../src/netvacinas.js');
+  const fetch = async (url) => ({ ok: true, json: async () => (url.includes('page=1')
+    ? { data: [{ id: 1, status: 'confirmed' }], page_info: { has_next_page: true } }
+    : { data: [{ id: 2, status: null }], page_info: { has_next_page: false } }) });
+  const api = criarNetVacinasRest({ baseUrl: 'https://x/api/v1', token: 't', fetch });
+  const m = await api.statusAgendamentos('2026-11-12', '2026-11-12');
+  assert.deepEqual([...m], [['1', 'confirmed'], ['2', null]]);
+});
+
+test('migração adiciona coluna confirmado em banco antigo', async () => {
+  const { DatabaseSync } = await import('node:sqlite');
+  const { mkdtempSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const { tmpdir } = await import('node:os');
+  const caminho = join(mkdtempSync(join(tmpdir(), 'mdc-')), 'velho.db');
+  const velho = new DatabaseSync(caminho);
+  velho.exec(`CREATE TABLE agenda_netvacinas_itens (chave TEXT PRIMARY KEY, id_externo TEXT, tipo TEXT, data_lote TEXT,
+    inicio TEXT, fim TEXT, tem_horario INTEGER, id_paciente TEXT, nome_paciente TEXT, telefone TEXT, vacina TEXT,
+    elegivel INTEGER, motivo TEXT, capturado_em TEXT)`);
+  velho.close();
+  const store = criarStore(caminho);
+  store.fechar();
+  criarStore(caminho).fechar(); // segunda abertura não pode falhar
 });

@@ -101,9 +101,14 @@ export function normalizarAgendaNetVacinas({ appointments = [], scheduledShots =
   return [...porChave.values()];
 }
 
-export function gravarSnapshotNetVacinas({ store, agenda, agora = new Date() }) {
+// statusPorId (opcional, da API REST): marca confirmado=1/0 nos appointments.
+// Sem ele, confirmado fica como estava no banco.
+export function gravarSnapshotNetVacinas({ store, agenda, statusPorId = null, agora = new Date() }) {
   const capturadoEm = agora.toISOString();
-  const itens = normalizarAgendaNetVacinas(agenda);
+  const itens = normalizarAgendaNetVacinas(agenda).map((item) => (
+    statusPorId && item.tipo === 'appointment'
+      ? { ...item, confirmado: statusPorId.get(item.id_externo) === 'confirmed' ? 1 : 0 }
+      : item));
   let elegiveis = 0;
   for (const item of itens) {
     store.upsertAgendaNetVacinasItem({ ...item, capturado_em: capturadoEm });
@@ -112,7 +117,15 @@ export function gravarSnapshotNetVacinas({ store, agenda, agora = new Date() }) 
   return { total: itens.length, elegiveis };
 }
 
-export async function snapshotAgendaNetVacinas({ netvacinas, store, inicio, fim, agora = new Date() }) {
+export async function snapshotAgendaNetVacinas({ netvacinas, netvacinasRest = null, store, inicio, fim, agora = new Date() }) {
   const agenda = await netvacinas.getAgenda(inicio, fim);
-  return gravarSnapshotNetVacinas({ store, agenda, agora });
+  let statusPorId = null;
+  if (netvacinasRest) {
+    try {
+      statusPorId = await netvacinasRest.statusAgendamentos(inicio, fim);
+    } catch (e) {
+      console.error('[netvacinas] falha ao ler status de confirmação:', e.message);
+    }
+  }
+  return gravarSnapshotNetVacinas({ store, agenda, statusPorId, agora });
 }

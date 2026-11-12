@@ -55,14 +55,15 @@ export async function enviarManual({ maischat, store, config, idAgendamento, ago
 
 // Envia manualmente uma dose ou agendamento da NetVacinas. Os envios ficam em uma
 // tabela própria porque os IDs GraphQL podem ser textos e não devem colidir com a MedX.
-export async function enviarManualNetVacinas({ maischat, store, config, chave, agora = new Date() }) {
-  console.log(`[envio-manual] acionado: netvacinas=${chave} dryRun=${config.dryRun ? 'true' : 'false'}`);
+// reenviar=true (botão "Reenviar" do painel) permite mandar de novo um item já enviado.
+export async function enviarManualNetVacinas({ maischat, store, config, chave, reenviar = false, agora = new Date() }) {
+  console.log(`[envio-manual] acionado: netvacinas=${chave} reenviar=${reenviar} dryRun=${config.dryRun ? 'true' : 'false'}`);
   const item = store.agendaNetVacinasItem(chave);
   if (!item) return { ok: false, status: 404, erro: 'Agendamento NetVacinas não encontrado' };
   if (!item.elegivel) return { ok: false, status: 400, erro: 'Agendamento não elegível para envio' };
   // O template de vacinas exige horário ({{3}}); a Meta recusa parâmetro vazio.
   if (!item.tem_horario) return { ok: false, status: 400, erro: 'Item sem horário — envie pela linha do agendamento' };
-  if (store.jaEnviadoNetVacinas(chave)) {
+  if (!reenviar && store.jaEnviadoNetVacinas(chave)) {
     console.warn(`[envio-manual] ignorado: netvacinas=${chave} já enviado (só pendentes recebem mensagem)`);
     return { ok: false, status: 409, erro: 'Mensagem já enviada — apenas agendamentos pendentes recebem envio' };
   }

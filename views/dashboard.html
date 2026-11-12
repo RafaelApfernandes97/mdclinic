@@ -198,6 +198,7 @@ const CARDS=[
 const predicado=(k)=>(CARDS.find((c)=>c[0]===k)||CARDS[0])[2];
 const rotulo=(k)=>(CARDS.find((c)=>c[0]===k)||[])[1]||'';
 // ícone "aviãozinho" de envio (estilo WhatsApp)
+const ICON_REENVIAR='<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>';
 const ICON_AVIAO='<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>';
 
 function statusInfo(r){
@@ -205,6 +206,7 @@ function statusInfo(r){
     const m={desmarcado:['Desmarcado','chip-error'],bloqueio:['Bloqueio','chip-gray'],sem_telefone:['Sem telefone','chip-warn'],sem_paciente:['Sem paciente','chip-warn']};
     return m[r.motivo]||['Não elegível','chip-gray'];
   }
+  if(r.confirmado===1)return['Confirmado','chip-success'];
   if(r.ack==='lido')return['Lido','chip-success'];
   if(r.ack==='entregue')return['Entregue','chip-info'];
   if(r.ack==='falha'||r.status_envio==='erro')return['Falha','chip-error'];
@@ -353,8 +355,9 @@ function desenharNetVacinas(d){
   cont.innerHTML=Object.keys(grupos).sort().map((dia)=>{
     const rows=grupos[dia].map((r)=>{
       const [txt,cls]=statusInfo(r);
-      const botao=r.elegivel===1 && r.status_envio!=='enviado'
-        ? `<button class="enviar" title="Envio manual" aria-label="Envio manual" data-origem="netvacinas" data-id="${esc(r.chave)}" data-nome="${esc(r.nome_paciente)}">${ICON_AVIAO}</button>`
+      const jaEnviado=r.status_envio==='enviado';
+      const botao=r.elegivel===1 && r.tem_horario===1
+        ? `<button class="enviar" title="${jaEnviado?'Reenviar':'Envio manual'}" aria-label="${jaEnviado?'Reenviar':'Envio manual'}" data-origem="netvacinas" data-id="${esc(r.chave)}" data-nome="${esc(r.nome_paciente)}"${jaEnviado?' data-reenviar="1"':''}>${jaEnviado?ICON_REENVIAR:ICON_AVIAO}</button>`
         : '';
       const horario=r.tem_horario===1?hora(r.inicio):'Sem horário';
       return `<tr class="${r.elegivel===0?'inelegivel':''}">
@@ -581,11 +584,11 @@ document.querySelector('.fonte-tabs').addEventListener('click',(e)=>{
 });
 document.getElementById('agendas').addEventListener('click',async (e)=>{
   const b=e.target.closest('.enviar'); if(!b) return;
-  const id=b.dataset.id, nome=b.dataset.nome||'', origem=b.dataset.origem||'medx';
-  if(!confirm('Enviar confirmação para '+nome+'?')) return;
+  const id=b.dataset.id, nome=b.dataset.nome||'', origem=b.dataset.origem||'medx', reenviar=b.dataset.reenviar==='1';
+  if(!confirm(reenviar?'Reenviar confirmação para '+nome+'? A mensagem já foi enviada antes.':'Enviar confirmação para '+nome+'?')) return;
   b.disabled=true;
   try{
-    const r=await fetch('/api/enviar?origem='+encodeURIComponent(origem)+'&id='+encodeURIComponent(id),{method:'POST'});
+    const r=await fetch('/api/enviar?origem='+encodeURIComponent(origem)+'&id='+encodeURIComponent(id)+(reenviar?'&reenviar=1':''),{method:'POST'});
     const d=await r.json().catch(()=>({}));
     if(r.status!==200){ mostrarErro(d.erro||'Não foi possível enviar a mensagem.'); return; }
     if(d.dryRun){ mostrarErro('DRY_RUN ativo: envio simulado (nada foi enviado).'); return; }

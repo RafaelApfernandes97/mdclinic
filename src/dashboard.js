@@ -64,7 +64,7 @@ function dadosDoDashboard({ store, config, netvacinas, inicio, fim }) {
   };
 }
 
-export function montarDashboard({ store, config, medx, netvacinas = null, maischat }) {
+export function montarDashboard({ store, config, medx, netvacinas = null, netvacinasRest = null, maischat }) {
   const router = express.Router();
   router.use(express.urlencoded({ extended: false }));
   router.use(express.json());
@@ -103,7 +103,7 @@ export function montarDashboard({ store, config, medx, netvacinas = null, maisch
     if (req.query.origem === 'netvacinas') {
       const chave = String(req.query.id ?? '').trim();
       if (!chave) return res.status(400).json({ erro: 'id NetVacinas inválido' });
-      const r = await enviarManualNetVacinas({ maischat, store, config, chave });
+      const r = await enviarManualNetVacinas({ maischat, store, config, chave, reenviar: req.query.reenviar === '1' });
       if (!r.ok) return res.status(r.status ?? 500).json({ erro: r.erro });
       return res.json(r);
     }
@@ -154,7 +154,7 @@ export function montarDashboard({ store, config, medx, netvacinas = null, maisch
     let netvacinasErro = null;
     if (netvacinas) {
       try {
-        await snapshotAgendaNetVacinas({ netvacinas, store, inicio, fim });
+        await snapshotAgendaNetVacinas({ netvacinas, netvacinasRest, store, inicio, fim });
       } catch (e) {
         console.error('[dashboard] falha ao atualizar agenda NetVacinas:', e.message);
         netvacinasErro = 'Não foi possível atualizar a agenda na NetVacinas.';
