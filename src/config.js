@@ -17,6 +17,9 @@ export function carregarConfig(env = process.env) {
     netvacinasGraphqlUrl: env.NETVACINAS_GRAPHQL_URL ?? 'https://api.netvacinas.com.br/graphql',
     netvacinasToken: env.NETVACINAS_TOKEN ?? null,
     netvacinasNomeAgenda: env.NETVACINAS_NOME_AGENDA ?? 'NetVacinas',
+    // API REST (confirmação). Sem token, a confirmação segue só pelo MedX.
+    netvacinasApiUrl: env.NETVACINAS_API_URL ?? 'https://mdclinic.netvacinas.com.br/api/v1',
+    netvacinasApiToken: env.NETVACINAS_API_TOKEN ?? null,
     maischatBaseUrl: env.MAISCHAT_BASE_URL,
     maischatBroker: env.MAISCHAT_BROKER ?? 'wppCloudAPI',
     maischatAppId: env.MAISCHAT_APP_ID,

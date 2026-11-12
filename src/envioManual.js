@@ -60,6 +60,8 @@ export async function enviarManualNetVacinas({ maischat, store, config, chave, a
   const item = store.agendaNetVacinasItem(chave);
   if (!item) return { ok: false, status: 404, erro: 'Agendamento NetVacinas não encontrado' };
   if (!item.elegivel) return { ok: false, status: 400, erro: 'Agendamento não elegível para envio' };
+  // O template de vacinas exige horário ({{3}}); a Meta recusa parâmetro vazio.
+  if (!item.tem_horario) return { ok: false, status: 400, erro: 'Item sem horário — envie pela linha do agendamento' };
   if (store.jaEnviadoNetVacinas(chave)) {
     console.warn(`[envio-manual] ignorado: netvacinas=${chave} já enviado (só pendentes recebem mensagem)`);
     return { ok: false, status: 409, erro: 'Mensagem já enviada — apenas agendamentos pendentes recebem envio' };
@@ -73,6 +75,7 @@ export async function enviarManualNetVacinas({ maischat, store, config, chave, a
     ordem,
     agora,
     semHorario: !item.tem_horario,
+    vacina: item.vacina ?? '',
   });
 
   if (config.dryRun) {

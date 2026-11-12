@@ -75,11 +75,17 @@ test('snapshot NetVacinas grava horários, vacinas e itens sem horário em tabel
   store.fechar();
 });
 
-test('envio manual NetVacinas usa o Mais Chat e não inventa horário quando não existe', async () => {
+test('envio manual NetVacinas usa o template de vacinas com horário e vacina', async () => {
   const store = criarStore(':memory:');
   store.upsertAgendaNetVacinasItem({
-    chave: 'scheduled-shot:s1', id_externo: 's1', tipo: 'scheduled-shot', data_lote: '2026-01-04',
+    chave: 'scheduled-shot:s0', id_externo: 's0', tipo: 'scheduled-shot', data_lote: '2026-01-04',
     inicio: '2026-01-04T00:00:00', fim: null, tem_horario: 0, id_paciente: 'p1',
+    nome_paciente: 'Ana', telefone: '5534999998888', vacina: 'HPV', elegivel: 1, motivo: null,
+    capturado_em: '2026-01-01T10:00:00Z',
+  });
+  store.upsertAgendaNetVacinasItem({
+    chave: 'scheduled-shot:s1', id_externo: 's1', tipo: 'appointment', data_lote: '2026-01-04',
+    inicio: '2026-01-04T09:30:00', fim: null, tem_horario: 1, id_paciente: 'p1',
     nome_paciente: 'Ana', telefone: '5534999998888', vacina: 'HPV', elegivel: 1, motivo: null,
     capturado_em: '2026-01-01T10:00:00Z',
   });
@@ -90,12 +96,19 @@ test('envio manual NetVacinas usa o Mais Chat e não inventa horário quando nã
     netvacinasNomeAgenda: 'NetVacinas', dryRun: false,
   };
 
+  const semHorario = await enviarManualNetVacinas({
+    maischat, store, config, chave: 'scheduled-shot:s0', agora: new Date('2026-01-01T12:00:00Z'),
+  });
+  assert.equal(semHorario.status, 400);
+
   const resultado = await enviarManualNetVacinas({
     maischat, store, config, chave: 'scheduled-shot:s1', agora: new Date('2026-01-01T12:00:00Z'),
   });
 
   assert.equal(resultado.ok, true);
-  assert.deepEqual(enviados[0].variaveis, ['Ana', 'NetVacinas', '04/01/2026', '']);
+  assert.equal(enviados.length, 1);
+  assert.equal(enviados[0].template, 'md_vacinas_kids_confirmacao_agendamento');
+  assert.deepEqual(enviados[0].variaveis, ['Ana', '04/01/2026', '09:30', 'HPV']);
   assert.equal(store.jaEnviadoNetVacinas('scheduled-shot:s1'), true);
   store.fechar();
 });
@@ -146,4 +159,21 @@ test('dashboard atualiza e expõe NetVacinas no mesmo período da MedX', async (
     server.close();
     store.fechar();
   }
+});
+
+test('criarNetVacinasRest confirma pelo id com Bearer e propaga erro', async () => {
+  const { criarNetVacinasRest } = await import('../src/netvacinas.js');
+  const chamadas = [];
+  const fetch = async (url, opts) => {
+    chamadas.push({ url, opts });
+    return url.endsWith('/999/confirm')
+      ? { ok: false, status: 404, json: async () => ({ error: 'Não encontrado' }) }
+      : { ok: true, status: 201, json: async () => ({ id: 483855, status: 'confirmed' }) };
+  };
+  const api = criarNetVacinasRest({ baseUrl: 'https://x/api/v1', token: 'tk', fetch });
+  assert.deepEqual(await api.confirmarAgendamento('483855'), { id: 483855, status: 'confirmed' });
+  assert.equal(chamadas[0].url, 'https://x/api/v1/appointments/483855/confirm');
+  assert.equal(chamadas[0].opts.method, 'POST');
+  assert.equal(chamadas[0].opts.headers.Authorization, 'Bearer tk');
+  await assert.rejects(api.confirmarAgendamento('999'), /404: Não encontrado/);
 });

@@ -87,3 +87,56 @@ test('/api/confirmacao 404 quando telefone não tem agendamento na janela', asyn
   assert.equal(r.status, 404);
   assert.equal(JSON.parse(r.texto).success, false);
 });
+
+// Amanhã às 23:00 (dentro da janela de confirmação e ainda no futuro).
+const AMANHA = `${new Date(Date.now() + 86400000).toISOString().slice(0, 10)}T23:00:00`;
+
+function envioVacina(store, { telefone = '5534999998888', inicio = AMANHA, data_envio = '2026-11-12T11:00:00Z' } = {}) {
+  store.registrarEnvioNetVacinas({
+    chave: 'appointment:483855:1', id_externo: '483855', id_paciente: '1', nome_paciente: 'Maria',
+    telefone, vacina: 'Influenza', inicio, id_mensagem: 'w', status_envio: 'enviado', ack: 'enviado',
+    data_envio, data_lote: inicio.slice(0, 10), erro: null,
+  });
+}
+
+test('/api/confirmacao confirma na NetVacinas quando a última mensagem foi de vacina', async () => {
+  const store = criarStore(':memory:');
+  envioVacina(store, { telefone: '5534999998888' });
+  const confirmados = [];
+  const netvacinasRest = { confirmarAgendamento: async (id) => { confirmados.push(id); return { id, status: 'confirmed' }; } };
+  // wa_id sem o 9º dígito também precisa casar.
+  const r = await req(appDeTeste({ store, netvacinasRest }), 'POST', '/api/confirmacao', {
+    headers: jsonHeaders(), body: JSON.stringify({ telefone: '553499998888' }),
+  });
+  assert.equal(r.status, 200);
+  assert.deepEqual(confirmados, ['483855']);
+  assert.equal(JSON.parse(r.texto).origem, 'netvacinas');
+});
+
+test('/api/confirmacao segue pelo MedX quando a mensagem mais recente foi da MedX', async () => {
+  const store = criarStore(':memory:');
+  envioVacina(store, { telefone: '5511911761633', data_envio: '2026-11-12T10:00:00Z' });
+  store.registrarEnvio({
+    id_agendamento: -19659252, id_paciente: 1, nome_paciente: 'Rafael', telefone: '5511911761633', id_usuario: 1,
+    nome_medico: 'Dra. Marina', inicio: AMANHA, id_mensagem: 'm', status_envio: 'enviado',
+    ack: 'enviado', data_envio: '2026-11-12T11:00:00Z', data_lote: '2999-01-01', erro: null,
+  });
+  const confirmados = [];
+  const netvacinasRest = { confirmarAgendamento: async (id) => { confirmados.push(id); } };
+  const r = await req(appDeTeste({ store, netvacinasRest }), 'POST', '/api/confirmacao', {
+    headers: jsonHeaders(), body: JSON.stringify({ telefone: '11911761633' }),
+  });
+  assert.equal(r.status, 200);
+  assert.equal(confirmados.length, 0);
+  assert.equal(JSON.parse(r.texto).idAgendamento, -19659252);
+});
+
+test('/api/confirmacao 502 quando a NetVacinas recusa', async () => {
+  const store = criarStore(':memory:');
+  envioVacina(store);
+  const netvacinasRest = { confirmarAgendamento: async () => { throw new Error('HTTP 404'); } };
+  const r = await req(appDeTeste({ store, netvacinasRest }), 'POST', '/api/confirmacao', {
+    headers: jsonHeaders(), body: JSON.stringify({ telefone: '34999998888' }),
+  });
+  assert.equal(r.status, 502);
+});

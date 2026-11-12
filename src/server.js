@@ -2,12 +2,12 @@ import express from 'express';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { montarDashboard } from './dashboard.js';
-import { confirmarPorTelefone } from './confirmacao.js';
+import { confirmarPorTelefone, agendamentoNetVacinasParaConfirmar } from './confirmacao.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PUBLIC = join(__dirname, '..', 'public');
 
-export function criarServidor({ store, config, executarEnvio, medx, netvacinas = null, maischat }) {
+export function criarServidor({ store, config, executarEnvio, medx, netvacinas = null, netvacinasRest = null, maischat }) {
   const app = express();
   app.set('trust proxy', 1); // EasyPanel termina TLS num proxy reverso
 
@@ -33,6 +33,19 @@ export function criarServidor({ store, config, executarEnvio, medx, netvacinas =
     if (!telefone) {
       console.warn('[confirmacao] falha 400: telefone obrigatório (corpo sem telefone)');
       return res.status(400).json({ success: false, erro: 'telefone obrigatório' });
+    }
+    const nv = netvacinasRest
+      ? agendamentoNetVacinasParaConfirmar({ store, telefone, janelaDias: config.janelaConfirmacaoDias })
+      : null;
+    if (nv) {
+      try {
+        await netvacinasRest.confirmarAgendamento(nv.id);
+        console.log(`[confirmacao] telefone=${telefone} netvacinas=${nv.id} -> CONFIRMADO`);
+        return res.json({ success: true, origem: 'netvacinas', idAgendamento: nv.id, statusAplicado: 'CONFIRMADO', inicio: nv.inicio });
+      } catch (e) {
+        console.error(`[confirmacao] falha netvacinas=${nv.id} telefone=${telefone}:`, e.message);
+        return res.status(502).json({ success: false, erro: 'Falha ao confirmar na NetVacinas' });
+      }
     }
     try {
       const r = await confirmarPorTelefone({ medx, telefone, janelaDias: config.janelaConfirmacaoDias });

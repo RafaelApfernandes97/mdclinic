@@ -85,3 +85,16 @@ export async function confirmarAgendamento({ medx, idAgendamento, data }) {
   const r = await aplicarConfirmacao(medx, item);
   return { success: true, idAgendamento, statusAplicado: 'CONFIRMADO', jaConfirmado: r.jaConfirmado };
 }
+
+// O bot só envia o telefone. Se a ÚLTIMA mensagem enviada a ele (de agendamento
+// futuro na janela) foi o template de vacinas, o "Confirmar" é da NetVacinas.
+// Retorna { id, inicio } do agendamento NetVacinas ou null (segue pelo MedX).
+export function agendamentoNetVacinasParaConfirmar({ store, telefone, agora = new Date(), janelaDias = 4 }) {
+  const alvo = chaveTelefone(telefone);
+  if (!alvo) return null;
+  const limite = `${somaDiasISO(hojeISO(agora), janelaDias)}T23:59:59`;
+  const [ultimo] = store.enviosParaConfirmacao(agoraLocalISO(agora), limite)
+    .filter((e) => chaveTelefone(e.telefone) === alvo)
+    .sort((a, b) => String(b.data_envio).localeCompare(String(a.data_envio)));
+  return ultimo?.origem === 'netvacinas' ? { id: ultimo.id, inicio: ultimo.inicio } : null;
+}

@@ -345,6 +345,17 @@ export function criarStore(caminho) {
         lido: r.lido ?? 0, falha: r.falha ?? 0,
       };
     },
+    // Envios bem-sucedidos (MedX e NetVacinas) de agendamentos com início no intervalo,
+    // para decidir de qual origem é o "Confirmar" clicado pelo paciente.
+    enviosParaConfirmacao(inicioMin, inicioMax) {
+      return db.prepare(`
+        SELECT 'medx' AS origem, CAST(id_agendamento AS TEXT) AS id, telefone, inicio, data_envio
+        FROM envios WHERE status_envio='enviado' AND inicio>=? AND inicio<=?
+        UNION ALL
+        SELECT 'netvacinas', id_externo, telefone, inicio, data_envio
+        FROM envios_netvacinas WHERE status_envio='enviado' AND inicio>=? AND inicio<=?`)
+        .all(inicioMin, inicioMax, inicioMin, inicioMax);
+    },
     fechar() { db.close(); },
   };
 }

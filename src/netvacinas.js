@@ -107,3 +107,22 @@ export function criarNetVacinas({ url, token, fetch = globalThis.fetch }) {
     },
   };
 }
+
+// API REST (leitura e escrita), separada do GraphQL e com token próprio.
+// O id do agendamento é o mesmo internalId do GraphQL.
+export function criarNetVacinasRest({ baseUrl, token, fetch = globalThis.fetch }) {
+  if (!baseUrl) throw new Error('URL da API REST NetVacinas ausente');
+  if (!token) throw new Error('Token da API REST NetVacinas ausente');
+  return {
+    async confirmarAgendamento(id) {
+      const resposta = await fetch(`${baseUrl}/appointments/${encodeURIComponent(id)}/confirm`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` },
+      });
+      const corpo = await resposta.json().catch(() => null);
+      if (!resposta.ok) {
+        throw new Error(`NetVacinas confirm HTTP ${resposta.status}${corpo?.error ? `: ${corpo.error}` : ''}`);
+      }
+      return corpo;
+    },
+  };
+}

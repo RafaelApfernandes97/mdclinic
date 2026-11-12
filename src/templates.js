@@ -13,6 +13,8 @@ const TEMPLATES_MEDICOS = new Map([
   ['dramarinadedeus', { nome: 'confirmar_dramarina', variaveis: ['saudacao', 'nome', 'data_curta', 'hora_h'] }],
   ['mdexames', { nome: 'confirmar_mdexames', variaveis: ['nome', 'dia', 'hora'] }],
   ['mdhair', { nome: 'confirmar_mdhair', variaveis: ['nome', 'dia', 'hora'] }],
+  // Agenda NetVacinas (NETVACINAS_NOME_AGENDA, default "NetVacinas").
+  ['netvacinas', { nome: 'md_vacinas_kids_confirmacao_agendamento', variaveis: ['nome', 'data', 'hora', 'vacina'] }],
 ]);
 
 // Templates de campanha do envio em massa, quando a agenda tem um template
@@ -45,7 +47,7 @@ export function resolverTemplateEnvioMassa(nomeMedico, config) {
   return resolverTemplate(nomeMedico, config);
 }
 
-export function montarVariaveisTemplate({ nomePaciente, nomeMedico, inicio, ordem, agora = new Date(), semHorario = false }) {
+export function montarVariaveisTemplate({ nomePaciente, nomeMedico, inicio, ordem, agora = new Date(), semHorario = false, vacina = '' }) {
   const valores = {
     nome: nomePaciente,
     medico: nomeSemTitulo(nomeMedico),
@@ -56,6 +58,7 @@ export function montarVariaveisTemplate({ nomePaciente, nomeMedico, inicio, orde
     data_curta: formatarDataCurta(inicio),
     hora_h: semHorario ? '' : formatarHoraH(inicio),
     saudacao: saudacaoBR(agora),
+    vacina,
   };
   return ordem.map((chave) => valores[chave] ?? '');
 }
