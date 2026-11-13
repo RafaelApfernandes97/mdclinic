@@ -58,6 +58,7 @@ export function criarNetVacinas({ url, token, fetch = globalThis.fetch }) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ query, variables }),
+      signal: AbortSignal.timeout(60000), // sem limite, uma consulta travada segura o job para sempre
     });
 
     let corpo;

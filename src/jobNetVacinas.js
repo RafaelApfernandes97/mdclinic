@@ -17,11 +17,21 @@ export function agruparPendentes(itens, jaEnviado) {
   return [...grupos.values()];
 }
 
-export async function executarJobNetVacinas({ netvacinas, maischat, store, config, agora = new Date() }) {
+export async function executarJobNetVacinas({ netvacinas, maischat, store, config, agora = new Date(), esperaMs = 60000 }) {
   // Mesma base das agendas MedX: próximo dia útil (sexta => segunda).
   const base = proximoDiaUtilISO(agora);
   console.log(`[job-netvacinas] envio base=${base}`);
-  await snapshotAgendaNetVacinas({ netvacinas, store, inicio: base, fim: base, agora });
+  // A consulta das 08:00 já falhou sem deixar agenda: tenta 3 vezes antes de desistir.
+  for (let tentativa = 1; ; tentativa++) {
+    try {
+      await snapshotAgendaNetVacinas({ netvacinas, store, inicio: base, fim: base, agora });
+      break;
+    } catch (e) {
+      if (tentativa >= 3) throw e;
+      console.error(`[job-netvacinas] consulta falhou (tentativa ${tentativa}/3): ${e.message}`);
+      await new Promise((r) => setTimeout(r, esperaMs));
+    }
+  }
 
   const itens = store.agendaNetVacinasCompleta(base, base)
     .map((i) => ({ ...i, ...store.agendaNetVacinasItem(i.chave) }));

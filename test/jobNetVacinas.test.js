@@ -74,3 +74,19 @@ test('falha registra erro e permite reenvio', async () => {
   assert.equal(d.store.jaEnviadoNetVacinas('appointment:10:100'), false);
   assert.equal(d.store.agendaNetVacinasCompleta('2026-11-16').find((i) => i.chave === 'appointment:10:100').ack, 'falha');
 });
+
+test('tenta de novo quando a consulta NetVacinas falha', async () => {
+  const d = deps();
+  const original = d.netvacinas.getAgenda;
+  let chamadas = 0;
+  d.netvacinas.getAgenda = async (...a) => { if (++chamadas < 3) throw new Error('timeout'); return original(...a); };
+  const r = await executarJobNetVacinas({ ...d, agora: SEXTA, esperaMs: 0 });
+  assert.equal(chamadas, 3);
+  assert.equal(r.enviados, 1);
+});
+
+test('desiste após 3 falhas e propaga o erro', async () => {
+  const d = deps();
+  d.netvacinas.getAgenda = async () => { throw new Error('fora do ar'); };
+  await assert.rejects(executarJobNetVacinas({ ...d, agora: SEXTA, esperaMs: 0 }), /fora do ar/);
+});
